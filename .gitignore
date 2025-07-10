@@ -1,0 +1,10 @@
+# Dependencies
+/node_modules
+
+# Environment variables
+.env
+
+# Generated files
+analysis_result.json
+
+neurolink

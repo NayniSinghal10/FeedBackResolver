@@ -1,21 +1,3 @@
-1.
-I was trying to complete the payment but it failed twice. I’m not sure if the issue was on my end or with the gateway. Also, the UI is decent but a bit slow on older devices. One more thing I noticed: the text in the onboarding screens gets cut off on smaller screens. Would be great if that's looked into.
-
-2.
-Really like the overall layout of the platform. It feels clean and not too overwhelming. However, the search functionality seems off — I was looking for something very specific and the results were not relevant. Also, I’d appreciate if there's a filter option to sort content more easily.
-
-3.
-It’s working well mostly but the app tends to freeze sometimes when switching between tabs. I had to restart it twice yesterday. Also, there’s a small typo in the help section — under FAQs. Not a huge issue but thought I’d point it out. Otherwise, it’s been quite useful for my needs.
-
-4.
-I’ve been using it for about a week now. Navigation is intuitive and the responsiveness is good. Just a suggestion — the font size in the settings page could be slightly larger. And if possible, please add a night mode. I usually work late, and it would help reduce strain.
-
-5.
-I appreciate the effort put into the design and performance. The latest update did improve the load times significantly. However, I noticed that the back button doesn’t always behave as expected. Sometimes it closes the app instead of going back to the previous screen.
-
-6.
-The onboarding was simple and clear, which is great. I had no trouble understanding how to get started. One issue though — I didn’t receive a confirmation email after signing up, so I had to request it again manually. Maybe that process can be improved.
-
-7.
-The functionality is solid overall, and it covers most of the use cases I care about. One feature I’m missing is the ability to bookmark or save items for later. That would be really helpful. Also, there was a slight lag when loading the dashboard this morning.
-
+The new dark mode is a game-changer! But the app keeps crashing on my new phone.
+I love the design, but the search function is not very accurate.
+Customer support was very helpful and resolved my issue quickly.
