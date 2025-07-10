@@ -21,11 +21,11 @@ As a result, valuable feedback often ends up ignored, leading to missed opportun
 
 This Feedback Analyzer provides a simple yet powerful solution to this problem. It uses a sophisticated AI model, accessed through the **Juspay Neurolink** library, to perform a deep analysis of the feedback.
 
-The agent processes bulk feedback and generates a structured JSON output that includes:
+The agent processes bulk feedback and generates a human-readable Markdown report that includes:
 
 -   ✅ **Issue Extraction:** Identifies recurring pain points and bugs.
 -   ✅ **Positive Highlights:** Pinpoints what users love about the product.
--   ✅ **Actionable Suggestions:** Captures user-_generated_ ideas for improvement.
+-   ✅ **Actionable Suggestions:** Captures user-generated ideas for improvement.
 -   ✅ **Sentiment Analysis:** Determines the overall vibe of the feedback (e.g., "Mixed," "Positive").
 -   ✅ **AI-Generated Action Plan:** Provides a prioritized list of recommendations for the development and product teams.
 
@@ -34,7 +34,7 @@ The agent processes bulk feedback and generates a structured JSON output that in
 ## Features
 
 -   **Bulk Feedback Processing:** Analyze multiple feedback entries at once from a single file.
--   **Structured JSON Output:** Get clean, predictable, and machine-readable analysis results.
+-   **Human-Readable Report:** Get a clean, easy-to-read analysis in Markdown format.
 -   **Powered by Neurolink:** Utilizes a powerful AI provider for state-of-the-art text analysis.
 -   **Easy to Use:** Simply add your feedback to a text file and run a single command.
 -   **Secure API Key Management:** Uses a `.env` file to keep your API keys safe and out of the source code.
@@ -106,56 +106,36 @@ npm start
 
 ### 3. View the Results
 
-The application will read the feedback from `feedback.txt`, send it to the AI for analysis, and save the results in a new file named `analysis_result.json`.
+The application will read the feedback from `feedback.txt`, send it to the AI for analysis, and save the results in a new file named `analysis_report.md`.
 
-You can open `analysis_result.json` to see the detailed, structured insights.
+You can open `analysis_report.md` to see the detailed, human-readable insights.
 
 ---
 
 ## Example Output
 
-Here is a sample of the structured JSON you can expect in `analysis_result.json`:
+Here is a sample of the Markdown report you can expect in `analysis_report.md`:
 
-```json
-{
-  "issues": [
-    {
-      "id": 1,
-      "description": "App crashes on newer phones.",
-      "severity": "High"
-    },
-    {
-      "id": 2,
-      "description": "Search functionality is not accurate.",
-      "severity": "Medium"
-    }
-  ],
-  "positives": [
-    {
-      "id": 1,
-      "description": "Users love the new dark mode."
-    },
-    {
-      "id": 2,
-      "description": "Customer support is helpful and quick."
-    }
-  ],
-  "suggestions": [],
-  "sentiment": "Mixed",
-  "ai_recommendation": {
-    "summary": "Users are happy with recent feature updates and support, but critical stability issues are impacting the experience.",
-    "action_plan": [
-      {
-        "priority": "High",
-        "action": "Investigate and fix the app crashing bug immediately."
-      },
-      {
-        "priority": "Medium",
-        "action": "Improve the search algorithm to provide more relevant results."
-      }
-    ]
-  }
-}
+```markdown
+# Feedback Analysis Report
+
+## Overall Sentiment: Mixed
+
+### Issues
+- The app frequently crashes on the user's new phone.
+- The search function is not providing accurate results.
+
+### Positives
+- The new dark mode is highly appreciated.
+- The user loves the design of the app.
+- Customer support was helpful and resolved an issue quickly.
+
+### Suggestions
+- Investigate and fix the app crashing issue, particularly on newer phone models.
+- Improve the algorithm or indexing for the search function to increase its accuracy.
+
+### AI Recommendation
+High priority should be placed on addressing the application stability and crashing issues, as this is a critical bug affecting usability. A secondary priority should be to improve the search functionality. The positive feedback on the UI/design and customer support should be passed to the relevant teams to reinforce their good work.
 ```
 
 ---

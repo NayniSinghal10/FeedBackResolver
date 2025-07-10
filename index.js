@@ -31,8 +31,59 @@ async function analyzeFeedback() {
     });
 
     console.log("✅ Feedback Analysis Complete:");
-    fs.writeFileSync("analysis_result.json", result.text);
-    console.log("📝 Analysis saved to analysis_result.json");
+
+    // Clean the response to remove markdown code block formatting
+    let cleanedText = result.text.trim();
+    if (cleanedText.startsWith("```json")) {
+      cleanedText = cleanedText.substring(7).trim();
+    }
+    if (cleanedText.endsWith("```")) {
+      cleanedText = cleanedText.slice(0, -3).trim();
+    }
+
+    // Parse the JSON string
+    const analysis = JSON.parse(cleanedText);
+
+    // Format the output as Markdown
+    let markdownOutput = `# Feedback Analysis Report\n\n`;
+    markdownOutput += `## Overall Sentiment: ${analysis.sentiment}\n\n`;
+
+    markdownOutput += `### Issues\n`;
+    if (analysis.issues && analysis.issues.length > 0) {
+      analysis.issues.forEach(issue => {
+        markdownOutput += `- ${issue}\n`;
+      });
+    } else {
+      markdownOutput += `- No issues identified.\n`;
+    }
+
+    markdownOutput += `\n### Positives\n`;
+    if (analysis.positives && analysis.positives.length > 0) {
+      analysis.positives.forEach(positive => {
+        markdownOutput += `- ${positive}\n`;
+      });
+    } else {
+      markdownOutput += `- No positives identified.\n`;
+    }
+
+    markdownOutput += `\n### Suggestions\n`;
+    if (analysis.suggestions && analysis.suggestions.length > 0) {
+      analysis.suggestions.forEach(suggestion => {
+        markdownOutput += `- ${suggestion}\n`;
+      });
+    } else {
+      markdownOutput += `- No suggestions identified.\n`;
+    }
+
+    markdownOutput += `\n### AI Recommendation\n`;
+    if (analysis.ai_recommendation) {
+      markdownOutput += `${analysis.ai_recommendation}\n`;
+    } else {
+      markdownOutput += `- No recommendation provided.\n`;
+    }
+
+    fs.writeFileSync("analysis_report.md", markdownOutput);
+    console.log("📝 Analysis saved to analysis_report.md");
 
   } catch (error) {
     console.error("❌ Error during feedback analysis:", error.message);
