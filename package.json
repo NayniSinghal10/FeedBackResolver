@@ -1,0 +1,23 @@
+{
+  "name": "feedback-analyzer",
+  "version": "1.0.0",
+  "description": "AI-powered feedback analyzer using NeuroLink",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "ai",
+    "neurolink",
+    "feedback",
+    "analysis"
+  ],
+  "author": "Cline",
+  "license": "MIT",
+  "dependencies": {
+    "@juspay/neurolink": "latest",
+    "dotenv": "^17.2.0",
+    "inquirer": "^12.7.0"
+  }
+}
