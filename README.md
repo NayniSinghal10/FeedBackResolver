@@ -147,3 +147,9 @@ This project can be extended to create a fully automated feedback pipeline. Pote
 -   **Direct Platform Integration:** Use Neurolink's MCP (Model Context Protocol) to connect directly to APIs from Zendesk, HubSpot, Intercom, or Google Sheets.
 -   **Automated Reporting:** Generate weekly or monthly feedback summary reports.
 -   **Database Storage:** Store the structured analysis in a database to track trends over time.
+
+---
+
+## Demo
+
+You can watch a video demonstration of the project here: [Demo Video](https://drive.google.com/file/d/1Fz6GjtgUiQHEq9p-OiDOTwSC26Sa_Uf6/view?usp=sharing)
