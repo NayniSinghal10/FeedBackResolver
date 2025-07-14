@@ -2,6 +2,10 @@
 
 This project contains two versions of an AI-powered feedback analysis tool. Both versions are designed to take text-based feedback, analyze it using an AI model, and generate a consolidated report.
 
+## Project Demo
+
+A video demonstration of the project can be found here: [Project Demo](https://drive.google.com/file/d/15WC4NDSzVGiQGX9WN0_VCgByGvTKg0Vg/view?usp=drive_link)
+
 ## Project Structure
 
 The project is organized into two main directories:
