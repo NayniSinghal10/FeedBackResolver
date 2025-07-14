@@ -1,11 +1,12 @@
 # Dependencies
-/node_modules
+node_modules/
 
-# Environment variables
+# Environment Variables
 .env
 
-# Generated files
-analysis_result.json
+# Generated Files
 analysis_report.md
+processed_emails.json
 
-neurolink
+# macOS
+.DS_Store

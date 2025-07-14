@@ -1,0 +1,14 @@
+{
+  "name": "feedback-analyzer-text-file",
+  "version": "1.0.0",
+  "description": "Analyzes feedback from a text file.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@juspay/neurolink": "latest",
+    "dotenv": "^16.4.5"
+  }
+}

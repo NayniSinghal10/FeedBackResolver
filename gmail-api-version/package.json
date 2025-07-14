@@ -18,6 +18,7 @@
   "dependencies": {
     "@juspay/neurolink": "latest",
     "dotenv": "^17.2.0",
+    "googleapis": "^152.0.0",
     "inquirer": "^12.7.0"
   }
 }

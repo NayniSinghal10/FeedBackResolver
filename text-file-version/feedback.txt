@@ -1,0 +1,56 @@
+"Hi Megha,
+
+ 
+
+Cant find refund initiated in Juspat dashboard
+"
+"Hi Juspay Team,
+
+Could you please provide an update on the ETA for this? Typically, implementation takes around 24–48 hours at most.
+
+Also please Start sending full url, utm source, medium , campaign , term and content on Order additional notes.
+
+@Nikhil Joshi- Please expedite this"
+"TEST-nautinati-COPY <sayednehalibrahim@gmail.com>
+ Hi! can i customize my cart page as well?"
+"Hi Nikhil,
+
+I hope this email finds you well. Thank you for taking the time to speak with me earlier regarding our development support requirements.
+
+As discussed during our telephonic conversation, we would like to schedule a more detailed call to discuss the technical aspects and next steps for the development support we need from Juspay's side.
+
+Could you please let me know your availability for a call tomorrow at 12:30pm? 
+
+Looking forward to hearing from you soon.
+
+Best regards, Gautam Jain"
+"Hi
+
+My account is created with the email ID: gaurav.taneja@arvindfashions.com
+
+I am not able to trigger a forgot password email. Please check and help."
+"Hi team,
+
+We would like to discontinue the Juspay service for the time being. As suggested by our marketing team, we are shifting to a native Shopify flow and are currently facing some issues with UTM sourcing.
+
+Please do not raise an invoice for the month of July. We will get back to you as soon as possible regarding recommencing our service.
+
+Thank you for your understanding.
+
+Best regards,
+Marketing ReFit"
+"Hi team,
+As discussed there will be no FULL COD available for customers across the website right now.
+However customers can opt for Partial COD payment method. Terms for partial COD are as follows
+1. If customers opt for partial COD then they have to pay 200 inr UPFRONT amount.
+2. standard shipping charges will be applied ( below 999 - 100rs shipping charge and above 999- 200rs shipping charge will be applied)
+3. Extra 2% convenience fee will also be charged for partial COD method. "
+"Swaroop, thanks so much for letting me know! Here is our Pipecat plugin guide to help you get started with testing the integration.
+
+Separately, are you and your team on Slack? Most organizations we work with find it very helpful to have a Slack Connect channel between our teams, as it provides you direct access to our engineering and support resources throughout your testing and evaluation. 
+
+Let me know if this is something you'd be interested in, and I can get a channel set up for us. Thank you! 
+
+
+Michael Miller 
+AssemblyAI | Meet with Me"
