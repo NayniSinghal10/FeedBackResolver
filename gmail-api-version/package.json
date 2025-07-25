@@ -16,7 +16,7 @@
   "author": "Cline",
   "license": "MIT",
   "dependencies": {
-    "@juspay/neurolink": "latest",
+    "@juspay/neurolink": "6.1.0",
     "dotenv": "^17.2.0",
     "googleapis": "^152.0.0",
     "inquirer": "^12.7.0"

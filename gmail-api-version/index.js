@@ -1,4 +1,4 @@
-import { createBestAIProvider } from '@juspay/neurolink';
+import { NeuroLink } from '@juspay/neurolink';  
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const PROCESSED_EMAILS_PATH = path.join(__dirname, 'processed_emails.json');
 const ANALYSIS_REPORT_PATH = path.join(__dirname, 'analysis_report.md');
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GOOGLE_AI_API_KEY } = process.env;
+const neurolink = new NeuroLink();
 
 // --- Gmail Service ---
 let gmail;
@@ -28,7 +29,7 @@ async function initializeGmailService() {
     console.log('Gmail service initialized successfully.');
 }
 
-// --- Helper Functions ---
+// --- Helpers ---
 async function loadProcessedEmails() {
     try {
         await fs.access(PROCESSED_EMAILS_PATH);
@@ -43,44 +44,71 @@ async function saveProcessedEmails(emailIds) {
     await fs.writeFile(PROCESSED_EMAILS_PATH, JSON.stringify(emailIds, null, 2));
 }
 
+function extractJsonFromCodeBlock(text) {
+    const match = text.match(/```json\s*([\s\S]*?)```/);
+    if (!match) {
+        console.warn("No JSON code block found in response.");
+        return null;
+    }
+    try {
+        return JSON.parse(match[1]);
+    } catch (e) {
+        console.error("Failed to parse JSON block:", e.message);
+        return null;
+    }
+}
+
 // --- Core AI Functions ---
 async function triageEmailContent(email) {
-    const aiProvider = await createBestAIProvider();
-    const prompt = `
-        Analyze the following email and determine if it is a relevant business communication.
-        - If it is relevant (e.g., a query, feedback, request), extract the core message, removing all conversational fluff, greetings, and signatures.
-        - If it is irrelevant (e.g., spam, marketing, out-of-office), classify it as 'skip'.
-        Return the result as a JSON object with "isRelevant" (boolean) and "cleanedMessage" (string) keys.
-        
-        Email to analyze:
-        ---
-        From: ${email.from}
-        Subject: ${email.subject}
+    const response = await neurolink.generate({
+        input: {
+            text: `
+                Analyze the following email and determine if it is a relevant business communication.
+                - If it is relevant (e.g., a query, feedback, request), extract the core message, removing all conversational fluff, greetings, and signatures.
+                - If it is irrelevant (e.g., spam, marketing, out-of-office), classify it as 'skip'.
+                Return the result as a JSON object with "isRelevant" (boolean) and "cleanedMessage" (string) keys.
 
-        ${email.body}
-        ---
-    `;
+                Email to analyze:
+                ---
+                From: ${email.from}
+                Subject: ${email.subject}
+
+                ${email.body}
+                ---
+            `
+        },
+        provider: "google-ai",
+        timeout: "30000s"
+    });
+
+    console.log('NeuroLink raw response:', response.content);
     console.log(`Triaging email from: ${email.from}`);
-    const response = await aiProvider.generateText({ prompt });
-    try {
-        const cleanedResponse = response.text.trim().replace(/```json\n?|\n?```/g, '');
-        const result = JSON.parse(cleanedResponse);
+
+    const parsed = extractJsonFromCodeBlock(response.content);
+    if (!parsed || typeof parsed.cleanedMessage !== 'string') {
+        console.warn("Invalid or malformed triage result:", parsed);
         return {
-            ...result,
-            from: email.from, // Pass sender info along
+            isRelevant: false,
+            cleanedMessage: '',
+            from: email.from,
         };
-    } catch (e) {
-        console.error('Failed to parse triage response:', response.text);
-        return { isRelevant: false, cleanedMessage: '', from: email.from };
     }
+
+    return {
+        ...parsed,
+        cleanedMessage: parsed.cleanedMessage.trim(),
+        from: email.from,
+    };
 }
 
 async function performConsolidatedAnalysis(cleanedEmails) {
     if (cleanedEmails.length === 0) {
         return "No relevant new emails to analyze.";
     }
-    const aiProvider = await createBestAIProvider();
-    const emailBatch = cleanedEmails.map(email => `(From: ${email.from})\n${email.cleanedMessage}`).join('\n\n---\n\n');
+
+    const emailBatch = cleanedEmails
+        .map(email => `(From: ${email.from})\n${email.cleanedMessage}`)
+        .join('\n\n---\n\n');
 
     const prompt = `
 Analyze the entire block of text provided below, which contains multiple cleaned email messages separated by "---". Your task is to read all of them and generate a single, consolidated Markdown report that categorizes the key information from every message.
@@ -114,9 +142,15 @@ The final report should have the following structure. For each category, list th
         ${emailBatch}
         ---
     `;
+
+    const response = await neurolink.generate({
+        input: { text: prompt },
+        provider: "google-ai",
+        timeout: "30000s",
+    });
+
     console.log('Performing consolidated analysis on cleaned email batch...');
-    const response = await aiProvider.generateText({ prompt });
-    return response.text;
+    return response.content;
 }
 
 // --- Main Workflow ---
@@ -129,7 +163,7 @@ async function main() {
         const res = await gmail.users.messages.list({
             userId: 'me',
             q: 'is:unread to:nayni.singhal@juspay.in newer_than:10d',
-            maxResults: 10,
+            maxResults: 20
         });
 
         const messages = res.data.messages || [];
@@ -140,6 +174,7 @@ async function main() {
 
         const newEmails = messages.filter(msg => !processedIds.includes(msg.id));
         console.log(`Found ${newEmails.length} new emails to process.`);
+
         if (newEmails.length === 0) {
             console.log('No new, unprocessed emails to analyze.');
             return;
@@ -147,8 +182,8 @@ async function main() {
 
         const emailDetails = await Promise.all(newEmails.map(async (message) => {
             const msg = await gmail.users.messages.get({ userId: 'me', id: message.id });
-            const fromHeader = msg.data.payload.headers.find(h => h.name === 'From').value;
-            const subjectHeader = msg.data.payload.headers.find(h => h.name === 'Subject').value;
+            const fromHeader = msg.data.payload.headers.find(h => h.name === 'From')?.value || 'Unknown';
+            const subjectHeader = msg.data.payload.headers.find(h => h.name === 'Subject')?.value || 'No subject';
             
             let body = '';
             if (msg.data.payload.parts) {
@@ -159,18 +194,18 @@ async function main() {
             } else if (msg.data.payload.body.data) {
                 body = Buffer.from(msg.data.payload.body.data, 'base64').toString('utf8');
             }
-            return { id: message.id, from: fromHeader, subject: subjectHeader, body: body };
+
+            return { id: message.id, from: fromHeader, subject: subjectHeader, body };
         }));
 
         const triageResults = await Promise.all(emailDetails.map(triageEmailContent));
         const relevantEmails = triageResults.filter(result => result.isRelevant);
-        
+
         console.log(`Found ${relevantEmails.length} relevant emails to analyze.`);
 
         const analysisResult = await performConsolidatedAnalysis(relevantEmails);
 
-        let fullReport = `# Feedback Analysis Report - ${new Date().toISOString()}\n\n${analysisResult}`;
-
+        const fullReport = `# Feedback Analysis Report - ${new Date().toISOString()}\n\n${analysisResult}`;
         await fs.writeFile(ANALYSIS_REPORT_PATH, fullReport);
         console.log(`Analysis complete. Report saved to ${ANALYSIS_REPORT_PATH}`);
 

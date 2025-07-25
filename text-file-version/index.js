@@ -1,4 +1,4 @@
-import { createBestAIProvider } from '@juspay/neurolink';
+import { NeuroLink } from '@juspay/neurolink';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,14 +12,15 @@ const __dirname = path.dirname(__filename);
 // --- Constants ---
 const FEEDBACK_PATH = path.join(__dirname, 'feedback.txt');
 const ANALYSIS_REPORT_PATH = path.join(__dirname, 'analysis_report.md');
-const { GOOGLE_AI_API_KEY } = process.env;
 
 // --- Core AI Functions ---
 async function performDeepAnalysis(feedbackContent) {
     if (!feedbackContent.trim()) {
         return "No actionable feedback found in the provided text.";
     }
-    const aiProvider = await createBestAIProvider();
+
+    const neurolink = new NeuroLink();
+
     const prompt = `
 Analyze the entire block of text provided below, which contains multiple emails. Your task is to read all of them and generate a single, consolidated Markdown report that categorizes the key information from every email.
 
@@ -55,8 +56,14 @@ The final report should have the following structure. For each category, list th
         ${feedbackContent}
         ---
     `;
+
     console.log('Performing deep analysis...');
-    const response = await aiProvider.generate({ prompt });
+    const response = await neurolink.generate({
+        input: { text: prompt },
+        provider: "google-ai",
+        timeout: "60s"
+    });
+
     return response.content;
 }
 
@@ -66,7 +73,7 @@ async function main() {
     try {
         const feedbackContent = await fs.readFile(FEEDBACK_PATH, 'utf8');
         const analysis = await performDeepAnalysis(feedbackContent);
-        
+
         let fullReport = `# Feedback Analysis Report - ${new Date().toISOString()}\n\n`;
         fullReport += analysis;
 
