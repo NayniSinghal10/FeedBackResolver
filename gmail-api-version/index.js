@@ -13,7 +13,29 @@ const __dirname = path.dirname(__filename);
 // --- Constants ---
 const PROCESSED_EMAILS_PATH = path.join(__dirname, 'processed_emails.json');
 const ANALYSIS_REPORT_PATH = path.join(__dirname, 'analysis_report.md');
-const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GOOGLE_AI_API_KEY } = process.env;
+const { 
+    GOOGLE_CLIENT_ID, 
+    GOOGLE_CLIENT_SECRET, 
+    GMAIL_REFRESH_TOKEN, 
+    GOOGLE_AI_API_KEY,
+    TARGET_EMAIL,
+    DAYS_TO_SEARCH,
+    NEUROLINK_DEFAULT_PROVIDER,
+    MAX_RESULTS 
+} = process.env;
+
+// Set defaults for optional environment variables with robust fallbacks
+const targetEmail = (TARGET_EMAIL && TARGET_EMAIL.trim()) || null; // Default to null = all emails
+const daysToSearch = (DAYS_TO_SEARCH && !isNaN(parseInt(DAYS_TO_SEARCH)) && parseInt(DAYS_TO_SEARCH) > 0) 
+    ? DAYS_TO_SEARCH 
+    : '10';
+const neurolinkProvider = (NEUROLINK_DEFAULT_PROVIDER && NEUROLINK_DEFAULT_PROVIDER.trim()) || 'vertex';
+const maxResults = (MAX_RESULTS && !isNaN(parseInt(MAX_RESULTS)) && parseInt(MAX_RESULTS) > 0 && parseInt(MAX_RESULTS) <= 500) 
+    ? parseInt(MAX_RESULTS) 
+    : 20;
+
+const emailScope = targetEmail ? `specific email (${targetEmail})` : 'all emails in account';
+console.log(`Configuration: Email Scope = ${emailScope}, Days to Search = ${daysToSearch}, Max Results = ${maxResults}, AI Provider = ${neurolinkProvider}`);
 const neurolink = new NeuroLink();
 
 // --- Gmail Service ---
@@ -77,7 +99,7 @@ async function triageEmailContent(email) {
                 ---
             `
         },
-        provider: "google-ai",
+        provider: neurolinkProvider,
         timeout: "30000s"
     });
 
@@ -145,7 +167,7 @@ The final report should have the following structure. For each category, list th
 
     const response = await neurolink.generate({
         input: { text: prompt },
-        provider: "google-ai",
+        provider: neurolinkProvider,
         timeout: "30000s",
     });
 
@@ -160,15 +182,21 @@ async function main() {
         await initializeGmailService();
         const processedIds = await loadProcessedEmails();
         
+        // Build query conditionally based on whether we're targeting specific email or all emails
+        const query = targetEmail 
+            ? `is:unread to:${targetEmail} newer_than:${daysToSearch}d`
+            : `is:unread newer_than:${daysToSearch}d`;
+        console.log(`Searching for emails with query: ${query}`);
+        
         const res = await gmail.users.messages.list({
             userId: 'me',
-            q: 'is:unread to:nayni.singhal@juspay.in newer_than:10d',
-            maxResults: 20
+            q: query,
+            maxResults: maxResults
         });
 
         const messages = res.data.messages || [];
         if (messages.length === 0) {
-            console.log('No new emails found in the last 10 days.');
+            console.log(`No new emails found in the last ${daysToSearch} days.`);
             return;
         }
 
