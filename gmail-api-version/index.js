@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import SlackNotifier from './slack-notifier.js';
 
 // --- Setup ---
 dotenv.config();
@@ -37,6 +38,7 @@ const maxResults = (MAX_RESULTS && !isNaN(parseInt(MAX_RESULTS)) && parseInt(MAX
 const emailScope = targetEmail ? `specific email (${targetEmail})` : 'all emails in account';
 console.log(`Configuration: Email Scope = ${emailScope}, Days to Search = ${daysToSearch}, Max Results = ${maxResults}, AI Provider = ${neurolinkProvider}`);
 const neurolink = new NeuroLink();
+const slackNotifier = new SlackNotifier();
 
 // --- Gmail Service ---
 let gmail;
@@ -236,6 +238,13 @@ async function main() {
         const fullReport = `# Feedback Analysis Report - ${new Date().toISOString()}\n\n${analysisResult}`;
         await fs.writeFile(ANALYSIS_REPORT_PATH, fullReport);
         console.log(`Analysis complete. Report saved to ${ANALYSIS_REPORT_PATH}`);
+
+        // Send Slack notification
+        const analysisData = {
+            relevantEmails: relevantEmails.length,
+            reportPath: ANALYSIS_REPORT_PATH
+        };
+        await slackNotifier.sendNotification(analysisData);
 
         const newlyProcessedIds = newEmails.map(msg => msg.id);
         const updatedProcessedIds = [...processedIds, ...newlyProcessedIds];
