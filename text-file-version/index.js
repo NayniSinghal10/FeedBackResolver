@@ -60,7 +60,7 @@ The final report should have the following structure. For each category, list th
     console.log('Performing deep analysis...');
     const response = await neurolink.generate({
         input: { text: prompt },
-        provider: "google-ai",
+        provider: "vertex",
         timeout: "60s"
     });
 
