@@ -1,4 +1,4 @@
-# Feedback Analyzer Project
+### Feedback Analyzer Project
 
 This project contains two versions of an AI-powered feedback analysis tool. Both versions are designed to take text-based feedback, analyze it using an AI model, and generate a consolidated report.
 
