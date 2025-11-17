@@ -1,0 +1,405 @@
+# FeedBackResolver - Project Rules & Standards
+
+## 🎯 **Project Overview**
+FeedBackResolver is an AI-powered email feedback analysis system that integrates Gmail, NeuroLink AI, and Slack. This file defines the coding standards, conventions, and rules that must be followed when contributing to this project.
+
+**📚 IMPORTANT**: Before making any code changes, read the complete memory bank documentation in `/memory_bank/` to understand the project context, architecture, and business goals.
+
+---
+
+## 🔒 **Security & Environment Rules**
+
+### Rule #1: Environment Variable Management
+**MANDATORY**: All variables whose values vary based on user, environment, or contain sensitive data MUST be defined in `.env` files.
+
+#### ✅ **Required .env Variables:**
+```bash
+# Gmail API Integration
+GOOGLE_CLIENT_ID="[client-id]"
+GOOGLE_CLIENT_SECRET="[client-secret]"
+GMAIL_REFRESH_TOKEN="[refresh-token]"
+
+# AI Processing
+GOOGLE_VERTEX_PROJECT="[project-id]" 
+GOOGLE_APPLICATION_CREDENTIALS="[path-to-service-account]"
+GOOGLE_VERTEX_LOCATION="[region]"
+NEUROLINK_DEFAULT_MODEL="[model-name]"
+NEUROLINK_DEFAULT_PROVIDER="[provider-name]"
+
+# Email Configuration
+TARGET_EMAIL="[user-email]"
+DAYS_TO_SEARCH="[number]"
+MAX_RESULTS="[number]"
+
+# Slack Integration
+SLACK_WEBHOOK_URL="[webhook-url]"
+SLACK_ENABLED="[true/false]"
+```
+
+#### 🚫 **Never Hard-code:**
+- API keys, tokens, or credentials
+- Email addresses or personal information
+- Webhook URLs or server endpoints
+- File paths that vary by system
+- Any user-specific configuration values
+
+#### ✅ **Environment File Standards:**
+- Always provide `.env.example` with placeholder values
+- Use descriptive placeholder names: `[GOOGLE_CLIENT_ID]` not `[VALUE]`
+- Include comments explaining what each variable does
+- Validate required environment variables at application startup
+
+### Rule #2: Credential Security
+- **Never commit** real credentials to version control
+- **Always use** environment variables for sensitive data
+- **Document** all required credentials in `.env.example`
+- **Validate** credential presence at application startup
+
+---
+
+## 🏗️ **Code Architecture Rules**
+
+### Rule #3: Module Structure
+Follow the established modular architecture pattern:
+
+```
+project-root/
+├── index.js              # Main orchestration logic
+├── [module]-[function].js # Specific functionality modules
+├── get-[action].js        # Utility/helper scripts  
+├── test-[module].js       # Testing utilities
+├── .env                   # Environment configuration
+├── .env.example           # Configuration template
+└── package.json           # Dependencies and scripts
+```
+
+#### ✅ **File Naming Conventions:**
+- Use kebab-case: `slack-notifier.js`, `get-refresh-token.js`
+- Be descriptive: `email-processor.js` not `processor.js`
+- Include purpose: `test-slack.js`, `validate-config.js`
+
+### Rule #4: ES Modules Standard
+**MANDATORY**: Use ES6 modules throughout the project.
+
+#### ✅ **Import/Export Patterns:**
+```javascript
+// ✅ Correct ES6 imports
+import { NeuroLink } from '@juspay/neurolink';
+import SlackNotifier from './slack-notifier.js';
+import dotenv from 'dotenv';
+
+// ✅ Correct exports
+export default SlackNotifier;
+export { helperFunction, validateConfig };
+
+// 🚫 Avoid CommonJS
+const SlackNotifier = require('./slack-notifier');
+module.exports = SlackNotifier;
+```
+
+#### ✅ **Always include `.js` extension** in local imports:
+```javascript
+// ✅ Correct
+import SlackNotifier from './slack-notifier.js';
+
+// 🚫 Incorrect  
+import SlackNotifier from './slack-notifier';
+```
+
+---
+
+## 🛡️ **Error Handling Rules**
+
+### Rule #5: Graceful Degradation Pattern
+**MANDATORY**: System must continue operation despite component failures.
+
+#### ✅ **Error Handling Pattern:**
+```javascript
+// ✅ Non-blocking error handling
+try {
+    await criticalOperation();
+} catch (error) {
+    console.error('Operation failed:', error.message);
+    // Continue with fallback or next step
+    // Do NOT throw unless absolutely critical
+}
+```
+
+#### ✅ **Slack Integration Error Handling:**
+```javascript
+// ✅ Slack failure should not stop email processing
+try {
+    await slackNotifier.sendNotification(data);
+    console.log('✅ Slack notification sent');
+} catch (error) {
+    console.error('❌ Slack notification failed:', error.message);
+    // Continue - file backup still works
+}
+```
+
+### Rule #6: Error Logging Standards
+- **Always log errors** with descriptive messages
+- **Include context** but never log sensitive data
+- **Use consistent emoji** indicators: ✅ success, ❌ error, ⚠️ warning
+- **Never log email content** or user data
+
+#### ✅ **Logging Pattern:**
+```javascript
+// ✅ Good error logging
+console.error('❌ Gmail API authentication failed:', error.message);
+console.log('📤 Sending notification to Slack...');
+console.log('✅ Analysis complete. Report saved.');
+
+// 🚫 Never log sensitive data
+console.error('Error with email:', emailContent); // BAD
+console.error('Failed with token:', refreshToken); // BAD
+```
+
+---
+
+## 🤖 **AI Integration Rules**
+
+### Rule #7: NeuroLink Usage Standards
+**MANDATORY**: Use NeuroLink for all AI operations, never direct provider APIs.
+
+#### ✅ **NeuroLink Configuration:**
+```javascript
+const neurolink = new NeuroLink();
+
+const response = await neurolink.generate({
+    input: { text: promptText },
+    provider: process.env.NEUROLINK_DEFAULT_PROVIDER,
+    timeout: "30000s"
+});
+```
+
+#### ✅ **AI Response Handling:**
+```javascript
+// ✅ Always handle malformed responses
+const parsed = extractJsonFromCodeBlock(response.content);
+if (!parsed || typeof parsed.requiredField !== 'string') {
+    console.warn("Invalid AI response format");
+    return defaultFallback();
+}
+```
+
+### Rule #8: AI Prompt Engineering
+- **Be specific** in prompts about expected output format
+- **Include examples** of desired JSON structure
+- **Handle malformed responses** gracefully
+- **Use timeouts** to prevent hanging operations
+
+---
+
+## 📁 **Configuration Management Rules**
+
+### Rule #9: Environment Validation
+**MANDATORY**: Validate all required environment variables at startup.
+
+#### ✅ **Startup Validation Pattern:**
+```javascript
+// ✅ Required validation
+const requiredVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+for (const varName of requiredVars) {
+    if (!process.env[varName]) {
+        throw new Error(`Missing required environment variable: ${varName}`);
+    }
+}
+```
+
+### Rule #10: Default Values
+Provide sensible defaults for non-sensitive configuration:
+
+#### ✅ **Default Value Pattern:**
+```javascript
+// ✅ Good defaults with validation
+const daysToSearch = (DAYS_TO_SEARCH && !isNaN(parseInt(DAYS_TO_SEARCH))) 
+    ? DAYS_TO_SEARCH 
+    : '10';
+
+const maxResults = (MAX_RESULTS && parseInt(MAX_RESULTS) > 0) 
+    ? parseInt(MAX_RESULTS) 
+    : 20;
+```
+
+---
+
+## 📊 **Data Handling Rules**
+
+### Rule #11: Privacy by Design
+**MANDATORY**: Minimize data storage and protect user privacy.
+
+#### ✅ **Data Storage Rules:**
+- **Store only** email IDs for deduplication
+- **Never persist** email content beyond processing
+- **Process and discard** sensitive information immediately
+- **Use minimal retention** for tracking files
+
+#### ✅ **State Management:**
+```javascript
+// ✅ Only store necessary IDs
+const processedEmails = ['emailId1', 'emailId2'];
+
+// 🚫 Never store content
+const processedEmails = {
+    'emailId1': { content: 'email content' } // BAD
+};
+```
+
+---
+
+## 🧪 **Testing Rules**
+
+### Rule #12: Test Utilities
+**MANDATORY**: Provide test utilities for all external integrations.
+
+#### ✅ **Testing Standards:**
+- Create `test-[module].js` files for integration testing
+- Test external connections (Slack, Gmail, AI) separately
+- Provide clear success/failure messages
+- Include setup validation in test utilities
+
+#### ✅ **Test File Pattern:**
+```javascript
+// test-slack.js example
+async function testSlackConnection() {
+    console.log('🧪 Testing Slack connection...');
+    
+    try {
+        const result = await slackNotifier.testConnection();
+        console.log('✅ SUCCESS:', result.message);
+    } catch (error) {
+        console.log('❌ FAILED:', error.message);
+    }
+}
+```
+
+---
+
+## 📝 **Documentation Rules**
+
+### Rule #13: Code Documentation
+- **Use JSDoc** for function documentation
+- **Include usage examples** for complex functions
+- **Document error conditions** and return values
+- **Explain business logic** not just technical details
+
+#### ✅ **Documentation Pattern:**
+```javascript
+/**
+ * Analyzes email content for business relevance
+ * @param {Object} email - Email object with from, subject, body
+ * @returns {Object} Analysis result with isRelevant and cleanedMessage
+ * @throws {Error} When AI provider is unavailable
+ */
+async function triageEmailContent(email) {
+    // Implementation
+}
+```
+
+### Rule #14: README Standards
+Each module should have clear:
+- **Purpose** and business value
+- **Setup requirements** and dependencies  
+- **Usage examples** with sample data
+- **Error handling** and troubleshooting guides
+
+---
+
+## 🔄 **Git Workflow Rules**
+
+### Rule #15: Branch Strategy
+- **Feature branches** for all new development
+- **Descriptive branch names**: `add-slack-integration`, `fix-oauth-refresh`
+- **Meaningful commit messages**: "Add Slack notification formatting"
+- **No direct commits** to main branch
+
+### Rule #16: Commit Standards
+#### ✅ **Good Commit Messages:**
+```
+Add Slack webhook integration
+Fix OAuth token refresh handling  
+Update environment variable validation
+Improve AI response error handling
+```
+
+#### 🚫 **Avoid:**
+```
+Update files
+Fix bug
+WIP
+Changes
+```
+
+---
+
+## 🔧 **Performance Rules**
+
+### Rule #17: Async Operations
+**MANDATORY**: Use async/await for all I/O operations.
+
+#### ✅ **Async Pattern:**
+```javascript
+// ✅ Proper async handling
+const emails = await Promise.all(
+    emailIds.map(id => fetchEmailContent(id))
+);
+
+// ✅ Sequential when needed
+for (const email of emails) {
+    const result = await analyzeEmail(email);
+    processResult(result);
+}
+```
+
+### Rule #18: Batch Processing
+- **Batch AI requests** when possible
+- **Process emails in parallel** for fetching
+- **Use sequential processing** for AI analysis to avoid rate limits
+- **Implement timeouts** for long-running operations
+
+---
+
+## 🚀 **Deployment Rules**
+
+### Rule #19: Environment Separation
+- **Development**: Use `.env` files
+- **Production**: Use environment variables or secure secret management
+- **Never deploy** with development credentials
+- **Validate configuration** before deployment
+
+### Rule #20: Production Readiness
+Before production deployment:
+- ✅ All environment variables documented
+- ✅ Error handling tested with various failure scenarios  
+- ✅ Rate limiting and timeouts configured
+- ✅ Monitoring and logging in place
+- ✅ Backup and recovery procedures documented
+
+---
+
+## ⚡ **Quick Reference Checklist**
+
+Before submitting any code changes:
+
+- [ ] All sensitive values moved to environment variables
+- [ ] `.env.example` updated with new variables
+- [ ] Error handling follows graceful degradation pattern
+- [ ] ES6 modules used with `.js` extensions
+- [ ] No email content or credentials logged
+- [ ] Test utilities created/updated for new features
+- [ ] Documentation updated for API changes
+- [ ] Branch named descriptively
+- [ ] Commit message is clear and specific
+
+---
+
+## 📞 **When In Doubt**
+
+1. **Read the memory bank** documentation first
+2. **Check existing code** for established patterns
+3. **Favor security** over convenience
+4. **Prefer graceful degradation** over system failures
+5. **Document your decisions** for future developers
+
+Remember: This project handles sensitive email data and business communications. Security, privacy, and reliability are our top priorities.
