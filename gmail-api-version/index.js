@@ -30,7 +30,7 @@ const targetEmail = (TARGET_EMAIL && TARGET_EMAIL.trim()) || null; // Default to
 const daysToSearch = (DAYS_TO_SEARCH && !isNaN(parseInt(DAYS_TO_SEARCH)) && parseInt(DAYS_TO_SEARCH) > 0) 
     ? DAYS_TO_SEARCH 
     : '10';
-const neurolinkProvider = (NEUROLINK_DEFAULT_PROVIDER && NEUROLINK_DEFAULT_PROVIDER.trim()) || 'vertex';
+const neurolinkProvider = (NEUROLINK_DEFAULT_PROVIDER && NEUROLINK_DEFAULT_PROVIDER.trim()) || 'anthropic';
 const maxResults = (MAX_RESULTS && !isNaN(parseInt(MAX_RESULTS)) && parseInt(MAX_RESULTS) > 0 && parseInt(MAX_RESULTS) <= 500) 
     ? parseInt(MAX_RESULTS) 
     : 20;
