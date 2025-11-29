@@ -102,11 +102,11 @@ export class SlackNotifier {
             message += '\n';
         }
 
-        // Abbreviated analysis content
-        const condensedAnalysis = this._condenseAnalysis(analysis);
-        if (condensedAnalysis) {
-            message += `📋 *Feedback Categories*\n`;
-            message += condensedAnalysis;
+        // Detailed analysis content with replies
+        const detailedAnalysis = this._formatDetailedAnalysis(analysis);
+        if (detailedAnalysis) {
+            message += `📋 *Detailed Feedback Analysis*\n`;
+            message += detailedAnalysis;
         }
 
         // Footer
@@ -139,7 +139,78 @@ export class SlackNotifier {
     }
 
     /**
-     * Condense analysis for Slack message
+     * Format detailed analysis with email summaries and replies for Slack
+     */
+    _formatDetailedAnalysis(analysis) {
+        if (!analysis || typeof analysis !== 'string') {
+            return null;
+        }
+
+        let formatted = '';
+        const lines = analysis.split('\n');
+        let inReply = false;
+        let currentReply = '';
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+            
+            // Category headers
+            if (trimmed.startsWith('### ')) {
+                if (inReply && currentReply) {
+                    // End previous reply block
+                    formatted += `\`\`\`${currentReply}\`\`\`\n`;
+                    inReply = false;
+                    currentReply = '';
+                }
+                formatted += `\n*${trimmed.replace('### ', '')}*\n`;
+            }
+            // Email headers
+            else if (trimmed.startsWith('**Email from ')) {
+                if (inReply && currentReply) {
+                    // End previous reply block
+                    formatted += `\`\`\`${currentReply}\`\`\`\n`;
+                    inReply = false;
+                    currentReply = '';
+                }
+                formatted += `\n${trimmed.replace(/\*\*/g, '_')}\n`;
+            }
+            // Subject, Analysis lines
+            else if (trimmed.startsWith('- **Subject:**') || trimmed.startsWith('- **Analysis:**')) {
+                formatted += `${trimmed.replace(/\*\*/g, '_')}\n`;
+            }
+            // Suggested Reply header
+            else if (trimmed.startsWith('- **Suggested Reply:**')) {
+                formatted += `${trimmed.replace(/\*\*/g, '_')}\n`;
+                inReply = true;
+                currentReply = '';
+            }
+            // Reply content (inside code blocks)
+            else if (inReply && (trimmed.startsWith('```') || trimmed === '```')) {
+                if (trimmed === '```' && currentReply) {
+                    // End of reply
+                    formatted += `\`\`\`${currentReply}\`\`\`\n`;
+                    inReply = false;
+                    currentReply = '';
+                }
+                // Skip opening ``` - we'll add our own
+            }
+            // Content inside reply
+            else if (inReply && trimmed) {
+                currentReply += (currentReply ? '\n' : '') + trimmed;
+            }
+        }
+        
+        // Handle any remaining reply
+        if (inReply && currentReply) {
+            formatted += `\`\`\`${currentReply}\`\`\`\n`;
+        }
+
+        return formatted.trim() || null;
+    }
+
+    /**
+     * Condense analysis for Slack message (deprecated - keeping for compatibility)
      */
     _condenseAnalysis(analysis) {
         if (!analysis || typeof analysis !== 'string') {

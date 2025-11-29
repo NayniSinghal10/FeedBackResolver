@@ -32,20 +32,17 @@ export class AIAnalyzer {
             console.log('📋 Stage 1: Triaging emails for business relevance...');
             const triageResults = await this._triageEmails(emails);
             
-            // Filter relevant emails
+            // Separate relevant and non-relevant emails
             const relevantEmails = triageResults.filter(result => result.isRelevant);
-            console.log(`✅ Found ${relevantEmails.length} relevant emails out of ${emails.length}`);
+            const nonRelevantEmails = triageResults.filter(result => !result.isRelevant);
+            console.log(`✅ Found ${relevantEmails.length} relevant emails and ${nonRelevantEmails.length} general emails out of ${emails.length}`);
             
-            if (relevantEmails.length === 0) {
-                return this._generateEmptyReport('No relevant business communications found.');
-            }
-
-            // Stage 2: Consolidated analysis
+            // Stage 2: Consolidated analysis (include ALL emails)
             console.log('📊 Stage 2: Performing consolidated analysis...');
-            const consolidatedAnalysis = await this._performConsolidatedAnalysis(relevantEmails);
+            const consolidatedAnalysis = await this._performConsolidatedAnalysis(triageResults);
 
             // Generate final report
-            const report = this._generateReport(consolidatedAnalysis, relevantEmails.length, emails.length);
+            const report = this._generateReport(consolidatedAnalysis, relevantEmails.length, emails.length, nonRelevantEmails.length);
             
             console.log('✅ AI analysis completed successfully');
             return report;
@@ -121,11 +118,11 @@ export class AIAnalyzer {
     }
 
     /**
-     * Perform consolidated analysis on relevant emails
+     * Perform consolidated analysis on all emails (relevant and non-relevant)
      */
-    async _performConsolidatedAnalysis(relevantEmails) {
-        const emailBatch = relevantEmails
-            .map(result => `(From: ${result.from})\n${result.cleanedMessage}`)
+    async _performConsolidatedAnalysis(allTriageResults) {
+        const emailBatch = allTriageResults
+            .map(result => `(From: ${result.from}) [${result.isRelevant ? 'RELEVANT' : 'GENERAL'}]\n${result.cleanedMessage}`)
             .join('\n\n---\n\n');
 
         const prompt = this._buildConsolidatedPrompt(emailBatch);
@@ -151,11 +148,11 @@ Guidelines:
 - Relevant: Queries, feedback, feature requests, support issues, business inquiries, meeting requests
 - Not relevant: Spam, marketing, newsletters, automated notifications, receipts, out-of-office replies
 
-If relevant, extract the core message removing greetings, signatures, and conversational fluff.
+Preserve the complete email content for detailed analysis - do not truncate or summarize.
 
 Return result as JSON with these fields:
 - "isRelevant" (boolean): true if business-relevant
-- "cleanedMessage" (string): cleaned core message if relevant, otherwise empty
+- "cleanedMessage" (string): complete email content with subject line, preserving all important details
 - "confidence" (number): confidence score 0-1 (optional)
 - "category" (string): brief category if relevant (optional)
 
@@ -176,35 +173,73 @@ JSON Response:`;
     _buildConsolidatedPrompt(emailBatch) {
         return `
 Analyze the entire block of text below, which contains multiple cleaned email messages separated by "---". 
-Your task is to read all messages and generate a consolidated Markdown report categorizing the key information.
+Each message is tagged as [RELEVANT] or [GENERAL] to help with categorization.
+Your task is to read all messages and generate a comprehensive Markdown report with detailed analysis and intelligent replies.
 
-Every message should be represented in the final report. Do not skip any content.
+Every message should be represented in the final report with complete details and contextual responses.
 
 Use this structure for the report:
 
 **Consolidated Feedback Analysis Report**
 
 ### Technical Queries & Issues
-*   [List technical problems, bugs, integration issues with sender attribution]
+For each email in this category, provide:
+**Email from [Sender Name/Company]**
+- **Subject:** [Full email subject]
+- **Analysis:** [Detailed explanation of the technical issue, including context, impact, and specifics]
+- **Suggested Reply:**
+\`\`\`
+[Generate a helpful, specific reply that addresses their technical concern with practical solutions, troubleshooting steps, or next actions. Make it professional and actionable.]
+\`\`\`
 
 ### Feature & Implementation Requests  
-*   [List feature requests, enhancement suggestions with sender attribution]
+For each email in this category, provide:
+**Email from [Sender Name/Company]**
+- **Subject:** [Full email subject]
+- **Analysis:** [Detailed explanation of the feature request, business justification, and requirements]
+- **Suggested Reply:**
+\`\`\`
+[Generate a thoughtful response acknowledging their request, explaining feasibility, timeline considerations, or alternative solutions.]
+\`\`\`
 
 ### Service & Billing Changes
-*   [List service modifications, billing requests, account changes with sender attribution]
+For each email in this category, provide:
+**Email from [Sender Name/Company]**
+- **Subject:** [Full email subject]
+- **Analysis:** [Detailed explanation of the service/billing request and business implications]
+- **Suggested Reply:**
+\`\`\`
+[Generate a helpful response with specific next steps, policy explanations, or account management guidance.]
+\`\`\`
 
 ### Meeting & Scheduling Requests
-*   [List meeting requests, call scheduling with sender attribution]
+For each email in this category, provide:
+**Email from [Sender Name/Company]**
+- **Subject:** [Full email subject]
+- **Analysis:** [Detailed explanation of the meeting purpose, urgency, and context]
+- **Suggested Reply:**
+\`\`\`
+[Generate a professional response with availability, meeting logistics, or scheduling coordination.]
+\`\`\`
 
 ### General Inquiries & Communications
-*   [List general questions, informational requests with sender attribution]
+For each email in this category, provide:
+**Email from [Sender Name/Company]**
+- **Subject:** [Full email subject]
+- **Analysis:** [Detailed explanation of their inquiry or communication purpose]
+- **Suggested Reply:**
+\`\`\`
+[Generate a helpful, specific response that addresses their question or provides relevant information. Even for general emails, make it contextual and useful.]
+\`\`\`
 
 **Important Rules:**
-- Categorize every message appropriately
-- Include sender information: "(From: Name/Email)"
-- Use clear, concise bullet points
-- Do not invent information not present in the text
-- If unsure about categorization, use "General Inquiries"
+- Provide complete email analysis, not summaries or snippets
+- Generate intelligent, contextual replies that specifically address each sender's needs
+- Include all relevant details from the email content
+- Make suggested replies professional, helpful, and actionable
+- Do not use generic responses - tailor each reply to the specific email content
+- Include sender information clearly
+- If technical details are mentioned, address them specifically in the reply
 
 Messages to analyze:
 ---
@@ -242,7 +277,7 @@ Consolidated Report:`;
     /**
      * Generate final analysis report
      */
-    _generateReport(consolidatedAnalysis, relevantCount, totalCount) {
+    _generateReport(consolidatedAnalysis, relevantCount, totalCount, generalCount = 0) {
         const timestamp = new Date().toISOString();
         const summary = this._extractSummary(consolidatedAnalysis);
 
@@ -251,6 +286,7 @@ Consolidated Report:`;
             summary: {
                 totalEmails: totalCount,
                 relevantEmails: relevantCount,
+                generalEmails: generalCount,
                 categories: summary.categories,
                 keyInsights: summary.insights
             },

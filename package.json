@@ -16,6 +16,7 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "node test/index.js",
+    "integration-test": "node test/integration-test.js",
     "example": "node examples/basic-usage.js"
   },
   "keywords": [
