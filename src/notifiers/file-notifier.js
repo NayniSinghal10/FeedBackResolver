@@ -1,0 +1,422 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+
+/**
+ * File Notifier
+ * Saves feedback analysis reports to markdown files
+ */
+export class FileNotifier {
+    constructor(config = {}) {
+        this.config = {
+            enabled: config.enabled !== false, // Default to true
+            path: config.path || './feedback-analysis-report.md',
+            format: config.format || 'markdown',
+            includeMetadata: config.includeMetadata !== false,
+            timestampInFilename: config.timestampInFilename || false,
+            archiveOldReports: config.archiveOldReports || false,
+            maxArchiveFiles: config.maxArchiveFiles || 10,
+            ...config
+        };
+
+        console.log('📁 File notifier initialized');
+    }
+
+    /**
+     * Send analysis report to file
+     */
+    async send(analysisResult) {
+        if (!this.config.enabled) {
+            console.log('📁 File notifications disabled, skipping...');
+            return { success: true, message: 'File notifications disabled' };
+        }
+
+        console.log('💾 Saving analysis report to file...');
+
+        try {
+            const content = this._formatContent(analysisResult);
+            const filePath = this._generateFilePath(analysisResult);
+            
+            // Ensure directory exists
+            await this._ensureDirectoryExists(filePath);
+            
+            // Archive existing file if needed
+            if (this.config.archiveOldReports) {
+                await this._archiveExistingFile(filePath);
+            }
+            
+            // Write the new report
+            await fs.writeFile(filePath, content, 'utf8');
+            
+            console.log(`✅ Analysis report saved to: ${filePath}`);
+            
+            return {
+                success: true,
+                message: 'Analysis report saved successfully',
+                filePath: filePath,
+                size: content.length,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            console.error('❌ Failed to save analysis report:', error.message);
+            return {
+                success: false,
+                message: `Failed to save report: ${error.message}`,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
+    }
+
+    /**
+     * Format analysis result into file content
+     */
+    _formatContent(analysisResult) {
+        if (this.config.format === 'json') {
+            return JSON.stringify(analysisResult, null, 2);
+        }
+
+        // Default to markdown format
+        return this._formatAsMarkdown(analysisResult);
+    }
+
+    /**
+     * Format analysis as markdown
+     */
+    _formatAsMarkdown(analysisResult) {
+        const { summary, analysis, timestamp, metadata } = analysisResult;
+        
+        const date = new Date(timestamp).toLocaleDateString();
+        const time = new Date(timestamp).toLocaleTimeString();
+        
+        let content = `# Feedback Analysis Report\n\n`;
+        content += `**Generated:** ${date} at ${time}\n\n`;
+
+        // Summary section
+        content += `## Summary\n\n`;
+        content += `- **Total Emails Processed:** ${summary.totalEmails}\n`;
+        content += `- **Relevant Business Communications:** ${summary.relevantEmails}\n`;
+        
+        if (summary.categories && summary.categories.length > 0) {
+            content += `- **Categories Identified:** ${summary.categories.length}\n`;
+            content += `- **Category List:** ${summary.categories.join(', ')}\n`;
+        }
+        
+        content += '\n';
+
+        // Key insights
+        if (summary.keyInsights && summary.keyInsights.length > 0) {
+            content += `## Key Insights\n\n`;
+            summary.keyInsights.forEach(insight => {
+                content += `- ${insight}\n`;
+            });
+            content += '\n';
+        }
+
+        // Main analysis content
+        if (summary.relevantEmails > 0) {
+            content += `## Detailed Analysis\n\n`;
+            content += analysis || 'No detailed analysis available.';
+            content += '\n\n';
+        } else {
+            content += `## Analysis Result\n\n`;
+            content += summary.keyInsights?.[0] || 'No relevant feedback found to analyze.';
+            content += '\n\n';
+        }
+
+        // Metadata section
+        if (this.config.includeMetadata && metadata) {
+            content += `## Technical Details\n\n`;
+            content += `- **AI Provider:** ${metadata.aiProvider || 'Unknown'}\n`;
+            if (metadata.model) {
+                content += `- **AI Model:** ${metadata.model}\n`;
+            }
+            content += `- **Processing Time:** ${metadata.processingTime || timestamp}\n`;
+            content += `- **Report Format:** ${this.config.format}\n`;
+            content += '\n';
+        }
+
+        // Footer
+        content += `---\n`;
+        content += `*Generated by FeedbackResolver AI Analysis System*\n`;
+
+        return content;
+    }
+
+    /**
+     * Generate file path based on configuration
+     */
+    _generateFilePath(analysisResult) {
+        let filePath = this.config.path;
+        
+        if (this.config.timestampInFilename) {
+            const timestamp = new Date(analysisResult.timestamp);
+            const dateStr = timestamp.toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            
+            const dir = path.dirname(filePath);
+            const ext = path.extname(filePath);
+            const name = path.basename(filePath, ext);
+            
+            filePath = path.join(dir, `${name}-${dateStr}${ext}`);
+        }
+
+        return path.resolve(filePath);
+    }
+
+    /**
+     * Ensure the directory exists for the file path
+     */
+    async _ensureDirectoryExists(filePath) {
+        const dir = path.dirname(filePath);
+        
+        try {
+            await fs.access(dir);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                await fs.mkdir(dir, { recursive: true });
+                console.log(`📁 Created directory: ${dir}`);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * Archive existing file if it exists
+     */
+    async _archiveExistingFile(filePath) {
+        try {
+            await fs.access(filePath);
+            
+            // File exists, archive it
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            const dir = path.dirname(filePath);
+            const ext = path.extname(filePath);
+            const name = path.basename(filePath, ext);
+            
+            const archivePath = path.join(dir, 'archive', `${name}-${timestamp}${ext}`);
+            
+            // Ensure archive directory exists
+            await this._ensureDirectoryExists(archivePath);
+            
+            // Move existing file to archive
+            await fs.rename(filePath, archivePath);
+            console.log(`📦 Archived previous report to: ${archivePath}`);
+            
+            // Clean up old archive files if needed
+            await this._cleanupArchive(path.dirname(archivePath));
+            
+        } catch (error) {
+            if (error.code !== 'ENOENT') {
+                console.error('⚠️  Failed to archive existing file:', error.message);
+            }
+            // If file doesn't exist, that's fine - nothing to archive
+        }
+    }
+
+    /**
+     * Clean up old archive files
+     */
+    async _cleanupArchive(archiveDir) {
+        try {
+            const files = await fs.readdir(archiveDir);
+            
+            if (files.length <= this.config.maxArchiveFiles) {
+                return; // No cleanup needed
+            }
+
+            // Get file stats and sort by modification time (oldest first)
+            const fileStats = await Promise.all(
+                files.map(async (file) => {
+                    const filePath = path.join(archiveDir, file);
+                    const stats = await fs.stat(filePath);
+                    return { file, path: filePath, mtime: stats.mtime };
+                })
+            );
+
+            fileStats.sort((a, b) => a.mtime - b.mtime);
+
+            // Remove oldest files
+            const filesToRemove = fileStats.slice(0, fileStats.length - this.config.maxArchiveFiles);
+            
+            for (const fileInfo of filesToRemove) {
+                await fs.unlink(fileInfo.path);
+                console.log(`🗑️  Removed old archive: ${fileInfo.file}`);
+            }
+
+        } catch (error) {
+            console.error('⚠️  Failed to cleanup archive:', error.message);
+        }
+    }
+
+    /**
+     * Read existing report file
+     */
+    async readReport(filePath = null) {
+        const targetPath = filePath || this.config.path;
+        
+        try {
+            const resolvedPath = path.resolve(targetPath);
+            const content = await fs.readFile(resolvedPath, 'utf8');
+            const stats = await fs.stat(resolvedPath);
+            
+            return {
+                success: true,
+                content,
+                path: resolvedPath,
+                size: stats.size,
+                modified: stats.mtime
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to read report: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * List all report files in directory
+     */
+    async listReports(includeArchive = false) {
+        try {
+            const dir = path.dirname(path.resolve(this.config.path));
+            const reports = [];
+            
+            // Get main reports
+            const files = await fs.readdir(dir);
+            
+            for (const file of files) {
+                if (file.endsWith('.md') || file.endsWith('.json')) {
+                    const filePath = path.join(dir, file);
+                    const stats = await fs.stat(filePath);
+                    
+                    if (stats.isFile()) {
+                        reports.push({
+                            name: file,
+                            path: filePath,
+                            size: stats.size,
+                            modified: stats.mtime,
+                            type: 'current'
+                        });
+                    }
+                }
+            }
+
+            // Get archived reports if requested
+            if (includeArchive) {
+                const archiveDir = path.join(dir, 'archive');
+                try {
+                    const archiveFiles = await fs.readdir(archiveDir);
+                    
+                    for (const file of archiveFiles) {
+                        if (file.endsWith('.md') || file.endsWith('.json')) {
+                            const filePath = path.join(archiveDir, file);
+                            const stats = await fs.stat(filePath);
+                            
+                            if (stats.isFile()) {
+                                reports.push({
+                                    name: file,
+                                    path: filePath,
+                                    size: stats.size,
+                                    modified: stats.mtime,
+                                    type: 'archive'
+                                });
+                            }
+                        }
+                    }
+                } catch (archiveError) {
+                    // Archive directory doesn't exist or is inaccessible
+                }
+            }
+
+            // Sort by modification time (newest first)
+            reports.sort((a, b) => b.modified - a.modified);
+
+            return {
+                success: true,
+                reports,
+                count: reports.length
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to list reports: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Delete a specific report file
+     */
+    async deleteReport(filePath) {
+        try {
+            const resolvedPath = path.resolve(filePath);
+            await fs.unlink(resolvedPath);
+            
+            return {
+                success: true,
+                message: `Report deleted: ${filePath}`
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to delete report: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Get notifier configuration
+     */
+    getConfig() {
+        return {
+            type: 'file',
+            enabled: this.config.enabled,
+            path: this.config.path,
+            format: this.config.format,
+            includeMetadata: this.config.includeMetadata,
+            timestampInFilename: this.config.timestampInFilename,
+            archiveOldReports: this.config.archiveOldReports,
+            maxArchiveFiles: this.config.maxArchiveFiles
+        };
+    }
+
+    /**
+     * Update configuration
+     */
+    updateConfig(newConfig) {
+        this.config = { ...this.config, ...newConfig };
+        console.log('📁 File notifier configuration updated');
+    }
+
+    /**
+     * Test file writing permissions
+     */
+    async testFileAccess() {
+        try {
+            const testPath = this._generateFilePath({ timestamp: new Date().toISOString() });
+            const testContent = `# Test Report\n\nThis is a test file created at ${new Date().toLocaleString()}`;
+            
+            await this._ensureDirectoryExists(testPath);
+            await fs.writeFile(testPath, testContent, 'utf8');
+            await fs.unlink(testPath); // Clean up test file
+            
+            return {
+                success: true,
+                message: 'File access test passed',
+                path: testPath
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `File access test failed: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
+}

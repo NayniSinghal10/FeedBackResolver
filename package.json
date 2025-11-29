@@ -1,0 +1,56 @@
+{
+  "name": "feedback-resolver",
+  "version": "1.0.0",
+  "description": "AI-powered email feedback analysis system with automated OAuth and multi-mode support",
+  "main": "src/index.js",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./auth": "./src/auth/oauth-manager.js",
+    "./processors": "./src/processors/index.js",
+    "./notifiers": "./src/notifiers/index.js"
+  },
+  "bin": {
+    "feedback-resolver": "./bin/cli.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/index.js",
+    "example": "node examples/basic-usage.js"
+  },
+  "keywords": [
+    "email",
+    "feedback",
+    "ai",
+    "analysis",
+    "gmail",
+    "slack",
+    "automation",
+    "oauth"
+  ],
+  "author": "Nayni Singhal",
+  "license": "MIT",
+  "dependencies": {
+    "@juspay/neurolink": "6.1.0",
+    "googleapis": "152.0.0",
+    "dotenv": "17.2.1",
+    "axios": "^1.6.0",
+    "open": "10.2.0",
+    "inquirer": "12.8.2",
+    "express": "^4.18.0",
+    "commander": "^11.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NayniSinghal10/FeedBackResolver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NayniSinghal10/FeedBackResolver/issues"
+  }
+}
