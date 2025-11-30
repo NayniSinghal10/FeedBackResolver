@@ -229,7 +229,6 @@ Shared utilities across the application:
 ```javascript
 // Reusable functions for common operations
 function extractJsonFromCodeBlock(text) { /* ... */ }
-function loadProcessedEmails() { /* ... */ }
 function saveProcessedEmails(ids) { /* ... */ }
 ```
 

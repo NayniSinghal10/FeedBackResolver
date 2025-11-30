@@ -53,16 +53,7 @@ async function initializeGmailService() {
     console.log('Gmail service initialized successfully.');
 }
 
-// --- Helpers ---
-async function loadProcessedEmails() {
-    try {
-        await fs.access(PROCESSED_EMAILS_PATH);
-        const data = await fs.readFile(PROCESSED_EMAILS_PATH, 'utf8');
-        return JSON.parse(data);
-    } catch {
-        return [];
-    }
-}
+
 
 async function saveProcessedEmails(emailIds) {
     await fs.writeFile(PROCESSED_EMAILS_PATH, JSON.stringify(emailIds, null, 2));
@@ -182,8 +173,6 @@ async function main() {
     console.log('Starting advanced feedback analyzer...');
     try {
         await initializeGmailService();
-        const processedIds = await loadProcessedEmails();
-        
         // Build query conditionally based on whether we're targeting specific email or all emails
         const query = targetEmail 
             ? `is:unread to:${targetEmail} newer_than:${daysToSearch}d`
@@ -202,7 +191,7 @@ async function main() {
             return;
         }
 
-        const newEmails = messages.filter(msg => !processedIds.includes(msg.id));
+        const newEmails = messages;
         console.log(`Found ${newEmails.length} new emails to process.`);
 
         if (newEmails.length === 0) {
