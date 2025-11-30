@@ -1,6 +1,6 @@
 {
   "name": "feedback-resolver",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-powered email feedback analysis system with automated OAuth and multi-mode support",
   "main": "src/index.js",
   "type": "module",
