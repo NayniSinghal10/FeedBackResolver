@@ -1,6 +1,6 @@
 {
   "name": "feedback-resolver",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered email feedback analysis system with automated OAuth and multi-mode support",
   "main": "src/index.js",
   "type": "module",
@@ -33,13 +33,14 @@
   "license": "MIT",
   "dependencies": {
     "@juspay/neurolink": "6.1.0",
-    "googleapis": "152.0.0",
-    "dotenv": "17.2.1",
     "axios": "^1.6.0",
-    "open": "10.2.0",
-    "inquirer": "12.8.2",
+    "commander": "^11.0.0",
+    "dotenv": "17.2.1",
     "express": "^4.18.0",
-    "commander": "^11.0.0"
+    "feedback-resolver": "^1.0.1",
+    "googleapis": "152.0.0",
+    "inquirer": "12.8.2",
+    "open": "10.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
