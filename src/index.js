@@ -4,6 +4,8 @@ import { FileProcessor } from './processors/file-processor.js';
 import { SlackNotifier } from './notifiers/slack-notifier.js';
 import { FileNotifier } from './notifiers/file-notifier.js';
 import { AIAnalyzer } from './analyzers/ai-analyzer.js';
+import { GmailReplySender } from './senders/gmail-reply-sender.js';
+import { ReplyApprovalWorkflow } from './workflows/reply-approval.js';
 import { ConfigValidator } from './utils/config-validator.js';
 import dotenv from 'dotenv';
 import { EventEmitter } from 'events';
@@ -46,6 +48,12 @@ export default class FeedbackResolver extends EventEmitter {
             ai: {
                 provider: process.env.NEUROLINK_DEFAULT_PROVIDER || 'vertex',
                 model: process.env.NEUROLINK_DEFAULT_MODEL
+            },
+            autoReply: {
+                enabled: process.env.AUTO_REPLY_ENABLED === 'true',
+                requireApproval: process.env.AUTO_REPLY_REQUIRE_APPROVAL !== 'false',
+                confidenceThreshold: parseFloat(process.env.AUTO_REPLY_CONFIDENCE_THRESHOLD) || 0.7,
+                maxRepliesPerRun: parseInt(process.env.AUTO_REPLY_MAX_PER_RUN) || 10
             },
             notifications: {
                 slack: {
@@ -213,6 +221,115 @@ export default class FeedbackResolver extends EventEmitter {
     }
 
     /**
+     * Analyze feedback with automated reply capability
+     * @param {Object} options - Analysis options
+     * @returns {Object} Analysis result with sent replies
+     */
+    async analyzeAndReply(options = {}) {
+        if (!this.authenticated && this.mode === 'gmail') {
+            throw new Error('Not authenticated. Call authenticate() first.');
+        }
+
+        if (this.mode !== 'gmail') {
+            throw new Error('Auto-reply is only supported in Gmail mode');
+        }
+
+        this.emit('analysisStarted', { mode: this.mode, autoReply: true });
+
+        try {
+            // Process emails
+            const emails = await this.processor.process();
+            this.emit('emailsProcessed', { count: emails.length });
+
+            if (emails.length === 0) {
+                console.log('📭 No emails to process');
+                return {
+                    emails: 0,
+                    analysis: this.analyzer._generateEmptyReport(),
+                    sentReplies: [],
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+            // Analyze with reply detection
+            console.log('🤖 Analyzing emails with reply detection...');
+            const analysis = await this.analyzer.analyzeWithReplies(emails);
+            this.emit('analysisCompleted', { analysis });
+
+            const replyableEmails = analysis.replyableEmails || [];
+            console.log(`📧 Found ${replyableEmails.length} emails that may need replies`);
+
+            let sentReplies = [];
+
+            if (replyableEmails.length > 0 && this.config.autoReply?.enabled) {
+                this.emit('repliesGenerated', { count: replyableEmails.length });
+
+                // Handle approval workflow
+                let approvedReplies = [];
+
+                if (options.dryRun) {
+                    // Dry run mode - just show what would be sent
+                    this.approvalWorkflow.dryRun(replyableEmails);
+                } else if (this.config.autoReply.requireApproval !== false) {
+                    // Interactive approval
+                    console.log('\n📋 Starting reply approval process...\n');
+                    approvedReplies = await this.approvalWorkflow.promptForApproval(replyableEmails);
+                } else {
+                    // Auto-approve based on confidence threshold
+                    const threshold = this.config.autoReply.confidenceThreshold || 0.8;
+                    approvedReplies = this.approvalWorkflow.autoApprove(replyableEmails, threshold);
+                }
+
+                // Send approved replies
+                if (approvedReplies.length > 0 && !options.dryRun) {
+                    console.log(`\n📤 Sending ${approvedReplies.length} approved replies...`);
+                    this.emit('repliesSending', { count: approvedReplies.length });
+
+                    const sendResults = await this.replySender.sendBatch(approvedReplies);
+                    
+                    // Add reply content to sent replies for reporting
+                    sentReplies = sendResults.sent.map(sent => ({
+                        ...sent,
+                        replyContent: approvedReplies.find(a => a.email.id === sent.originalEmail.id)?.replyContent
+                    }));
+
+                    this.emit('repliesSent', {
+                        sent: sendResults.sent.length,
+                        failed: sendResults.failed.length
+                    });
+
+                    if (sendResults.failed.length > 0) {
+                        console.warn(`⚠️  ${sendResults.failed.length} replies failed to send`);
+                    }
+                }
+            }
+
+            // Add sent replies to analysis
+            analysis.sentReplies = sentReplies;
+            analysis.summary.sentReplies = sentReplies.length;
+
+            // Send notifications with reply information
+            const notifications = await this._sendNotifications(analysis);
+            this.emit('notificationsSent', { notifications });
+
+            const result = {
+                emails: emails.length,
+                analysis,
+                sentReplies,
+                notifications,
+                timestamp: new Date().toISOString()
+            };
+
+            this.emit('processComplete', result);
+            return result;
+
+        } catch (error) {
+            this.emit('analysisError', { error });
+            throw error;
+        }
+    }
+
+    /**
      * Analyze multiple sources in batch
      */
     async analyzeBatch(sources) {
@@ -260,6 +377,13 @@ export default class FeedbackResolver extends EventEmitter {
         // Initialize AI analyzer
         this.analyzer = new AIAnalyzer(this.config.ai);
 
+        // Initialize reply sender and approval workflow for Gmail mode
+        if (this.mode === 'gmail' && this.config.autoReply?.enabled) {
+            this.replySender = new GmailReplySender(this.oauthManager);
+            this.approvalWorkflow = new ReplyApprovalWorkflow(this.config.autoReply);
+            console.log('📤 Auto-reply functionality enabled');
+        }
+
         // Initialize notifiers
         this.notifiers = [];
         
@@ -283,6 +407,12 @@ export default class FeedbackResolver extends EventEmitter {
             ai: {
                 provider: 'vertex',
                 timeout: '30000s'
+            },
+            autoReply: {
+                enabled: false,
+                requireApproval: true,
+                confidenceThreshold: 0.7,
+                maxRepliesPerRun: 10
             },
             notifications: {
                 slack: { enabled: false },
@@ -345,4 +475,6 @@ export { FileProcessor } from './processors/file-processor.js';
 export { SlackNotifier } from './notifiers/slack-notifier.js';
 export { FileNotifier } from './notifiers/file-notifier.js';
 export { AIAnalyzer } from './analyzers/ai-analyzer.js';
+export { GmailReplySender } from './senders/gmail-reply-sender.js';
+export { ReplyApprovalWorkflow } from './workflows/reply-approval.js';
 export { ConfigValidator } from './utils/config-validator.js';

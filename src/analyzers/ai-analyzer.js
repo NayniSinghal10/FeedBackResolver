@@ -54,6 +54,175 @@ export class AIAnalyzer {
     }
 
     /**
+     * Analyze emails with reply detection - identifies which emails need responses
+     * @param {Array} emails - Array of email objects
+     * @returns {Object} Analysis with replyable emails identified
+     */
+    async analyzeWithReplies(emails) {
+        console.log(`🔍 Starting AI analysis with reply detection for ${emails.length} emails...`);
+        
+        if (emails.length === 0) {
+            return this._generateEmptyReport();
+        }
+
+        try {
+            // Stage 1: Triage emails for relevance AND reply detection
+            console.log('📋 Stage 1: Triaging emails and detecting replyable messages...');
+            const triageResults = await this._triageEmailsWithReplyDetection(emails);
+            
+            // Separate relevant, replyable, and non-relevant emails
+            const relevantEmails = triageResults.filter(result => result.isRelevant);
+            const replyableEmails = triageResults.filter(result => result.isReplyable);
+            const nonRelevantEmails = triageResults.filter(result => !result.isRelevant);
+            
+            console.log(`✅ Found ${relevantEmails.length} relevant emails, ${replyableEmails.length} need replies`);
+            
+            // Stage 2: Consolidated analysis
+            console.log('📊 Stage 2: Performing consolidated analysis...');
+            const consolidatedAnalysis = await this._performConsolidatedAnalysis(triageResults);
+
+            // Generate final report with reply information
+            const report = this._generateReport(consolidatedAnalysis, relevantEmails.length, emails.length, nonRelevantEmails.length);
+            
+            // Add replyable emails to the report
+            report.replyableEmails = replyableEmails.map(result => ({
+                email: result.email,
+                suggestedReply: result.suggestedReply,
+                replyReason: result.replyReason,
+                replyConfidence: result.replyConfidence,
+                isReplyable: result.isReplyable
+            }));
+            
+            report.summary.replyableEmails = replyableEmails.length;
+            
+            console.log('✅ AI analysis with reply detection completed successfully');
+            return report;
+
+        } catch (error) {
+            console.error('❌ AI analysis failed:', error.message);
+            throw new Error(`AI analysis failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Triage emails with reply detection
+     * @private
+     */
+    async _triageEmailsWithReplyDetection(emails) {
+        const results = [];
+        
+        for (let i = 0; i < emails.length; i++) {
+            const email = emails[i];
+            console.log(`📧 Analyzing email ${i + 1}/${emails.length} from: ${email.from}`);
+            
+            try {
+                const triageResult = await this._triageEmailWithReply(email);
+                results.push({
+                    ...triageResult,
+                    email: email
+                });
+            } catch (error) {
+                console.error(`⚠️  Analysis failed for email from ${email.from}:`, error.message);
+                // Default to not relevant and not replyable if analysis fails
+                results.push({
+                    isRelevant: false,
+                    isReplyable: false,
+                    cleanedMessage: email.body,
+                    email: email,
+                    error: error.message
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Triage a single email with reply detection
+     * @private
+     */
+    async _triageEmailWithReply(email) {
+        const prompt = this._buildTriageWithReplyPrompt(email);
+        
+        const response = await this.neurolink.generate({
+            input: { text: prompt },
+            provider: this.config.provider,
+            timeout: this.config.timeout,
+            ...(this.config.model && { model: this.config.model })
+        });
+
+        const parsed = this._extractJsonFromResponse(response.content);
+        
+        if (!parsed || typeof parsed.isRelevant !== 'boolean') {
+            console.warn('Invalid triage response format, defaulting to not relevant');
+            return {
+                isRelevant: false,
+                isReplyable: false,
+                cleanedMessage: email.body,
+                from: email.from
+            };
+        }
+
+        return {
+            isRelevant: parsed.isRelevant,
+            isReplyable: parsed.isReplyable || false,
+            cleanedMessage: (parsed.cleanedMessage || email.body).trim(),
+            suggestedReply: parsed.suggestedReply || null,
+            replyReason: parsed.replyReason || null,
+            replyConfidence: parsed.replyConfidence || null,
+            from: email.from,
+            confidence: parsed.confidence || null,
+            category: parsed.category || null
+        };
+    }
+
+    /**
+     * Build triage prompt with reply detection
+     * @private
+     */
+    _buildTriageWithReplyPrompt(email) {
+        return `
+Analyze the following email and determine:
+1. If it is a relevant business communication
+2. If it requires a reply from us
+
+Guidelines for relevance:
+- Relevant: Queries, feedback, feature requests, support issues, business inquiries, meeting requests
+- Not relevant: Spam, marketing, newsletters, automated notifications, receipts, out-of-office replies
+
+Guidelines for replyability:
+- Needs reply: Questions, support requests, feature inquiries, meeting requests, complaints, feedback requiring acknowledgment
+- No reply needed: FYI messages, confirmations, thank you notes, automated notifications, spam
+
+If the email needs a reply, generate a professional, contextual response that:
+- Addresses the sender's specific concerns
+- Provides helpful information or next steps
+- Maintains a professional and friendly tone
+- Is ready to send (complete sentences, proper formatting)
+
+Return result as JSON with these fields:
+- "isRelevant" (boolean): true if business-relevant
+- "isReplyable" (boolean): true if this email needs a response from us
+- "cleanedMessage" (string): complete email content with subject line
+- "suggestedReply" (string): if isReplyable is true, provide a complete, ready-to-send reply
+- "replyReason" (string): if isReplyable is true, brief explanation why it needs a reply
+- "replyConfidence" (number): if isReplyable is true, confidence score 0-1 for the suggested reply
+- "confidence" (number): confidence score 0-1 for relevance classification
+- "category" (string): brief category if relevant
+
+Email to analyze:
+---
+From: ${email.from}
+Subject: ${email.subject}
+Date: ${email.date}
+
+${email.body}
+---
+
+JSON Response:`;
+    }
+
+    /**
      * Triage individual emails for business relevance
      */
     async _triageEmails(emails) {

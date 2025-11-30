@@ -37,6 +37,12 @@ const testConfig = {
             model: process.env.NEUROLINK_DEFAULT_MODEL,
             timeout: '45000s'
         },
+        autoReply: {
+            enabled: process.env.AUTO_REPLY_ENABLED === 'true',
+            requireApproval: process.env.AUTO_REPLY_REQUIRE_APPROVAL !== 'false',
+            confidenceThreshold: parseFloat(process.env.AUTO_REPLY_CONFIDENCE_THRESHOLD) || 0.7,
+            maxRepliesPerRun: parseInt(process.env.AUTO_REPLY_MAX_PER_RUN) || 10
+        },
         notifications: {
             slack: {
                 enabled: process.env.SLACK_ENABLED === 'true',
@@ -61,6 +67,8 @@ const testResults = {
     errors: [],
     emailsProcessed: 0,
     relevantEmails: 0,
+    replyableEmails: 0,
+    repliesSent: 0,
     notificationsSent: 0
 };
 
@@ -172,6 +180,10 @@ async function runIntegrationTest() {
     console.log(`• Max Results: ${testConfig.config.gmail.maxResults}`);
     console.log(`• AI Provider: ${testConfig.config.ai.provider}`);
     console.log(`• Slack Enabled: ${testConfig.config.notifications.slack.enabled}`);
+    console.log(`• Auto-Reply Enabled: ${testConfig.config.autoReply.enabled}`);
+    if (testConfig.config.autoReply.enabled) {
+        console.log(`• Require Approval: ${testConfig.config.autoReply.requireApproval}`);
+    }
     console.log('=' .repeat(60));
     
     try {
@@ -213,7 +225,24 @@ async function runIntegrationTest() {
         
         resolver.on('analysisCompleted', (data) => {
             testResults.relevantEmails = data.analysis.summary.relevantEmails;
+            testResults.replyableEmails = data.analysis.summary.replyableEmails || 0;
             logStep(`AI analysis completed: ${data.analysis.summary.relevantEmails} relevant emails found`, 'success');
+            if (testResults.replyableEmails > 0) {
+                logStep(`Found ${testResults.replyableEmails} emails that may need replies`, 'info');
+            }
+        });
+        
+        resolver.on('repliesGenerated', (data) => {
+            logStep(`Generated ${data.count} suggested replies`, 'info');
+        });
+        
+        resolver.on('repliesSending', (data) => {
+            logStep(`Sending ${data.count} approved replies...`, 'info');
+        });
+        
+        resolver.on('repliesSent', (data) => {
+            testResults.repliesSent = data.sent;
+            logStep(`Replies sent: ${data.sent} successful, ${data.failed} failed`, data.failed > 0 ? 'warning' : 'success');
         });
         
         resolver.on('notificationsSent', (data) => {
@@ -230,17 +259,31 @@ async function runIntegrationTest() {
         logStep('Starting Gmail authentication...');
         await resolver.authenticate();
         
-        // Step 5: Analyze Feedback
+        // Step 5: Analyze Feedback (with or without auto-reply)
         logStep('Starting email analysis...');
-        const result = await resolver.analyze();
+        let result;
+        
+        if (testConfig.config.autoReply.enabled) {
+            logStep('Auto-reply is enabled - using analyzeAndReply()', 'info');
+            result = await resolver.analyzeAndReply({ dryRun: false });
+        } else {
+            result = await resolver.analyze();
+        }
         
         // Step 6: Log Results
-        logStep('Analysis completed successfully', 'success', {
+        const resultDetails = {
             emailsProcessed: result.emails,
             relevantEmails: result.analysis.summary.relevantEmails,
             categories: result.analysis.summary.categories?.length || 0,
             timestamp: result.timestamp
-        });
+        };
+        
+        if (testConfig.config.autoReply.enabled) {
+            resultDetails.replyableEmails = result.analysis.summary.replyableEmails || 0;
+            resultDetails.repliesSent = result.sentReplies?.length || 0;
+        }
+        
+        logStep('Analysis completed successfully', 'success', resultDetails);
         
         // Step 7: Send Success Notification to Slack
         if (testConfig.config.notifications.slack.enabled) {
@@ -303,6 +346,106 @@ async function sendSuccessNotification(result) {
                 }
             ]
         };
+        
+        // Add auto-reply results if enabled
+        if (testConfig.config.autoReply.enabled && result.sentReplies) {
+            successMessage.blocks.push({
+                type: 'section',
+                fields: [
+                    {
+                        type: 'mrkdwn',
+                        text: `*Replyable Emails:*\n${result.analysis.summary.replyableEmails || 0}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Replies Sent:*\n${result.sentReplies.length}`
+                    }
+                ]
+            });
+        }
+        
+        successMessage.blocks.push({
+                type: 'divider'
+            });
+        
+        // Re-add the insights section
+        successMessage.blocks.push({
+                type: 'section',
+                fields: [
+                    {
+                        type: 'mrkdwn',
+                        text: `*Emails Processed:*\n${result.emails}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Relevant Emails:*\n${result.analysis.summary.relevantEmails}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Categories Found:*\n${result.analysis.summary.categories?.length || 0}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Processing Time:*\n${new Date(result.timestamp).toLocaleString()}`
+                    }
+                ]
+            });
+        
+        // Remove duplicate section
+        successMessage.blocks = [
+            successMessage.blocks[0], // header
+            successMessage.blocks[1], // first fields section
+            ...(testConfig.config.autoReply.enabled && result.sentReplies ? [successMessage.blocks[2]] : []) // auto-reply section if exists
+        ];
+        
+        // Re-structure properly
+        successMessage.blocks = [
+            {
+                type: 'header',
+                text: {
+                    type: 'plain_text',
+                    text: '✅ FeedbackResolver Test Completed Successfully'
+                }
+            },
+            {
+                type: 'section',
+                fields: [
+                    {
+                        type: 'mrkdwn',
+                        text: `*Emails Processed:*\n${result.emails}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Relevant Emails:*\n${result.analysis.summary.relevantEmails}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Categories Found:*\n${result.analysis.summary.categories?.length || 0}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*Processing Time:*\n${new Date(result.timestamp).toLocaleString()}`
+                    }
+                ]
+            }
+        ];
+        
+        // Add auto-reply section if enabled
+        if (testConfig.config.autoReply.enabled && result.sentReplies) {
+            successMessage.blocks.push({
+                type: 'section',
+                fields: [
+                    {
+                        type: 'mrkdwn',
+                        text: `*📧 Replyable Emails:*\n${result.analysis.summary.replyableEmails || 0}`
+                    },
+                    {
+                        type: 'mrkdwn',
+                        text: `*✅ Replies Sent:*\n${result.sentReplies.length}`
+                    }
+                ]
+            });
+        }
         
         if (result.analysis.summary.keyInsights?.length > 0) {
             successMessage.blocks.push({
@@ -385,6 +528,10 @@ function displayTestResults(result = null) {
     console.log(`⏱️  Duration: ${duration} seconds`);
     console.log(`📧 Emails Processed: ${testResults.emailsProcessed}`);
     console.log(`🎯 Relevant Emails: ${testResults.relevantEmails}`);
+    if (testConfig.config.autoReply.enabled) {
+        console.log(`💬 Replyable Emails: ${testResults.replyableEmails}`);
+        console.log(`✅ Replies Sent: ${testResults.repliesSent}`);
+    }
     console.log(`📨 Notifications Sent: ${testResults.notificationsSent}`);
     console.log(`❌ Errors: ${testResults.errors.length}`);
     

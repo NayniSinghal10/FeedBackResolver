@@ -17,7 +17,10 @@ export class OAuthManager {
         this.clientId = config.clientId;
         this.clientSecret = config.clientSecret;
         this.redirectUri = config.redirectUri || 'http://localhost:3000/oauth2callback';
-        this.scopes = config.scopes || ['https://www.googleapis.com/auth/gmail.readonly'];
+        this.scopes = config.scopes || [
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.send'
+        ];
         this.port = config.port || 3000;
         
         // Token storage

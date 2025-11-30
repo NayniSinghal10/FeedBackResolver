@@ -84,7 +84,7 @@ export class FileNotifier {
      * Format analysis as markdown
      */
     _formatAsMarkdown(analysisResult) {
-        const { summary, analysis, timestamp, metadata } = analysisResult;
+        const { summary, analysis, timestamp, metadata, sentReplies, replyableEmails } = analysisResult;
         
         const date = new Date(timestamp).toLocaleDateString();
         const time = new Date(timestamp).toLocaleTimeString();
@@ -96,6 +96,14 @@ export class FileNotifier {
         content += `## Summary\n\n`;
         content += `- **Total Emails Processed:** ${summary.totalEmails}\n`;
         content += `- **Relevant Business Communications:** ${summary.relevantEmails}\n`;
+        
+        // Add reply information if available
+        if (summary.replyableEmails !== undefined) {
+            content += `- **Emails Needing Replies:** ${summary.replyableEmails}\n`;
+        }
+        if (summary.sentReplies !== undefined) {
+            content += `- **Replies Sent:** ${summary.sentReplies}\n`;
+        }
         
         if (summary.categories && summary.categories.length > 0) {
             content += `- **Categories Identified:** ${summary.categories.length}\n`;
@@ -111,6 +119,47 @@ export class FileNotifier {
                 content += `- ${insight}\n`;
             });
             content += '\n';
+        }
+
+        // Sent Replies Section
+        if (sentReplies && sentReplies.length > 0) {
+            content += `## ✅ Automated Replies Sent\n\n`;
+            content += `Successfully sent ${sentReplies.length} automated ${sentReplies.length === 1 ? 'reply' : 'replies'}:\n\n`;
+            
+            sentReplies.forEach((reply, index) => {
+                const email = reply.originalEmail;
+                content += `### ${index + 1}. Reply to: ${email.from}\n\n`;
+                content += `- **Original Subject:** ${email.subject}\n`;
+                content += `- **Reply Sent:** ${new Date(reply.sentAt).toLocaleString()}\n`;
+                content += `- **Thread ID:** ${reply.threadId}\n\n`;
+                content += `**Reply Content:**\n\`\`\`\n${reply.replyContent || 'Reply content not available'}\n\`\`\`\n\n`;
+                content += `---\n\n`;
+            });
+        }
+
+        // Replyable Emails (not sent)
+        if (replyableEmails && replyableEmails.length > 0) {
+            const unsent = replyableEmails.filter(r =>
+                !sentReplies || !sentReplies.some(s => s.originalEmail.id === r.email.id)
+            );
+            
+            if (unsent.length > 0) {
+                content += `## 📧 Emails Identified for Reply (Not Sent)\n\n`;
+                content += `Found ${unsent.length} ${unsent.length === 1 ? 'email' : 'emails'} that may need replies:\n\n`;
+                
+                unsent.forEach((item, index) => {
+                    content += `### ${index + 1}. From: ${item.email.from}\n\n`;
+                    content += `- **Subject:** ${item.email.subject}\n`;
+                    if (item.replyConfidence) {
+                        content += `- **Confidence:** ${(item.replyConfidence * 100).toFixed(0)}%\n`;
+                    }
+                    if (item.replyReason) {
+                        content += `- **Reason:** ${item.replyReason}\n`;
+                    }
+                    content += `\n**Suggested Reply:**\n\`\`\`\n${item.suggestedReply}\n\`\`\`\n\n`;
+                    content += `---\n\n`;
+                });
+            }
         }
 
         // Main analysis content
@@ -142,6 +191,7 @@ export class FileNotifier {
 
         return content;
     }
+
 
     /**
      * Generate file path based on configuration
