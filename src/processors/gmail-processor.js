@@ -16,9 +16,6 @@ export class GmailProcessor {
         };
         this.oauthManager = oauthManager;
         this.gmail = null;
-        
-        // Email tracking for deduplication
-        this.processedEmailsFile = path.join(process.cwd(), '.processed-emails.json');
     }
 
     /**
@@ -40,9 +37,6 @@ export class GmailProcessor {
         
         console.log(`📥 Fetching emails from Gmail...`);
         
-        // Load previously processed email IDs
-        const processedIds = await this._loadProcessedEmails();
-        
         // Build Gmail query
         const query = this._buildQuery();
         console.log(`🔍 Gmail query: ${query}`);
@@ -55,21 +49,10 @@ export class GmailProcessor {
             return [];
         }
         
-        // Filter out already processed emails
-        const newMessages = messages.filter(msg => !processedIds.includes(msg.id));
-        console.log(`📬 Found ${newMessages.length} new emails to process`);
-        
-        if (newMessages.length === 0) {
-            console.log('✅ All emails already processed');
-            return [];
-        }
+        console.log(`📬 Found ${messages.length} emails to process`);
         
         // Fetch full email details
-        const emails = await this._fetchEmailDetails(newMessages);
-        
-        // Update processed emails list
-        const newIds = newMessages.map(msg => msg.id);
-        await this._saveProcessedEmails([...processedIds, ...newIds]);
+        const emails = await this._fetchEmailDetails(messages);
         
         console.log(`✅ Successfully processed ${emails.length} emails`);
         return emails;
@@ -214,33 +197,6 @@ export class GmailProcessor {
         cleaned = cleaned.replace(/[ \t]+/g, ' ');
         
         return cleaned.trim();
-    }
-
-    /**
-     * Load previously processed email IDs
-     */
-    async _loadProcessedEmails() {
-        try {
-            await fs.access(this.processedEmailsFile);
-            const data = await fs.readFile(this.processedEmailsFile, 'utf8');
-            const parsed = JSON.parse(data);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-            return [];
-        }
-    }
-
-    /**
-     * Save processed email IDs
-     */
-    async _saveProcessedEmails(emailIds) {
-        try {
-            // Keep only the last 1000 IDs to prevent file from growing too large
-            const trimmedIds = emailIds.slice(-1000);
-            await fs.writeFile(this.processedEmailsFile, JSON.stringify(trimmedIds, null, 2));
-        } catch (error) {
-            console.error('⚠️  Failed to save processed emails:', error.message);
-        }
     }
 
     /**

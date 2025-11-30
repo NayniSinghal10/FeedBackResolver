@@ -92,10 +92,8 @@ temp/
 
 # Runtime generated files
 .oauth-tokens.json
-.processed-emails.json
 **/analysis_report.md
 **/feedback-analysis-report.md
-processed_emails.json
 
 # Test output
 test-output/
