@@ -117,8 +117,8 @@ ehthumbs.db
 Thumbs.db
 
 # FeedbackResolver specific
-*.config.json
-feedback-resolver.config.json
+# Result files only - no config files needed
 sample-feedback.txt
 example-report.md
 file-analysis-report.md
+integration-test-report.md

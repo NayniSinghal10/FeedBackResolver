@@ -36,6 +36,11 @@ export class ConfigValidator {
             this._validateNotificationsConfig(config.notifications, errors);
         }
         
+        // Validate auto-reply config (optional but validate if provided)
+        if (config.autoReply) {
+            this._validateAutoReplyConfig(config.autoReply, errors);
+        }
+        
         if (errors.length > 0) {
             const errorMessage = `Configuration validation failed:\n${errors.map(e => `- ${e}`).join('\n')}`;
             throw new Error(errorMessage);
@@ -93,7 +98,7 @@ export class ConfigValidator {
      * Validate AI configuration
      */
     static _validateAIConfig(aiConfig, errors) {
-        const supportedProviders = ['vertex', 'anthropic', 'openai', 'google-ai', 'azure'];
+        const supportedProviders = ['vertex', 'anthropic', 'openai', 'google-ai', 'azure', 'bedrock'];
         
         if (!aiConfig.provider) {
             errors.push('AI config missing required field: provider');
@@ -107,12 +112,43 @@ export class ConfigValidator {
         }
         
         // Provider-specific validations
-        if (aiConfig.provider === 'vertex' && !process.env.GOOGLE_VERTEX_PROJECT && !aiConfig.projectId) {
-            errors.push('Vertex AI requires GOOGLE_VERTEX_PROJECT environment variable or projectId in config');
+        if (aiConfig.provider === 'vertex') {
+            if (!process.env.GOOGLE_VERTEX_PROJECT && !aiConfig.projectId) {
+                errors.push('Vertex AI requires GOOGLE_VERTEX_PROJECT environment variable or projectId in config');
+            }
         }
         
-        if (aiConfig.provider === 'openai' && !process.env.OPENAI_API_KEY && !aiConfig.apiKey) {
-            errors.push('OpenAI requires OPENAI_API_KEY environment variable or apiKey in config');
+        if (aiConfig.provider === 'openai') {
+            if (!process.env.OPENAI_API_KEY && !aiConfig.apiKey) {
+                errors.push('OpenAI requires OPENAI_API_KEY environment variable or apiKey in config');
+            }
+        }
+        
+        if (aiConfig.provider === 'azure') {
+            if (!process.env.AZURE_OPENAI_API_KEY && !aiConfig.apiKey) {
+                errors.push('Azure OpenAI requires AZURE_OPENAI_API_KEY environment variable or apiKey in config');
+            }
+            if (!process.env.AZURE_OPENAI_ENDPOINT && !aiConfig.endpoint) {
+                errors.push('Azure OpenAI requires AZURE_OPENAI_ENDPOINT environment variable or endpoint in config');
+            }
+        }
+        
+        if (aiConfig.provider === 'bedrock') {
+            if (!process.env.AWS_ACCESS_KEY_ID) {
+                errors.push('AWS Bedrock requires AWS_ACCESS_KEY_ID environment variable');
+            }
+            if (!process.env.AWS_SECRET_ACCESS_KEY) {
+                errors.push('AWS Bedrock requires AWS_SECRET_ACCESS_KEY environment variable');
+            }
+            if (!process.env.AWS_REGION) {
+                errors.push('AWS Bedrock requires AWS_REGION environment variable');
+            }
+        }
+        
+        if (aiConfig.provider === 'anthropic') {
+            if (!process.env.ANTHROPIC_API_KEY && !aiConfig.apiKey) {
+                errors.push('Anthropic requires ANTHROPIC_API_KEY environment variable or apiKey in config');
+            }
         }
     }
     
@@ -142,6 +178,37 @@ export class ConfigValidator {
     }
     
     /**
+     * Validate auto-reply configuration
+     */
+    static _validateAutoReplyConfig(autoReplyConfig, errors) {
+        if (typeof autoReplyConfig.enabled !== 'boolean') {
+            errors.push('Auto-reply config: enabled must be a boolean');
+        }
+        
+        if (autoReplyConfig.requireApproval !== undefined && typeof autoReplyConfig.requireApproval !== 'boolean') {
+            errors.push('Auto-reply config: requireApproval must be a boolean');
+        }
+        
+        if (autoReplyConfig.confidenceThreshold !== undefined) {
+            const threshold = parseFloat(autoReplyConfig.confidenceThreshold);
+            if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+                errors.push('Auto-reply config: confidenceThreshold must be between 0 and 1');
+            }
+        }
+        
+        if (autoReplyConfig.maxPerRun !== undefined) {
+            const max = parseInt(autoReplyConfig.maxPerRun);
+            if (isNaN(max) || max < 1 || max > 100) {
+                errors.push('Auto-reply config: maxPerRun must be between 1 and 100');
+            }
+        }
+        
+        if (autoReplyConfig.dryRun !== undefined && typeof autoReplyConfig.dryRun !== 'boolean') {
+            errors.push('Auto-reply config: dryRun must be a boolean');
+        }
+    }
+    
+    /**
      * Generate default configuration for a mode
      */
     static getDefaults(mode) {
@@ -150,7 +217,10 @@ export class ConfigValidator {
                 daysToSearch: 10,
                 maxResults: 20,
                 port: 3000,
-                scopes: ['https://www.googleapis.com/auth/gmail.readonly']
+                scopes: [
+                    'https://www.googleapis.com/auth/gmail.readonly',
+                    'https://www.googleapis.com/auth/gmail.send'
+                ]
             },
             file: {
                 encoding: 'utf8'
@@ -159,9 +229,16 @@ export class ConfigValidator {
                 provider: 'vertex',
                 timeout: '30000s'
             },
+            autoReply: {
+                enabled: false,
+                requireApproval: true,
+                confidenceThreshold: 0.7,
+                maxPerRun: 10,
+                dryRun: false
+            },
             notifications: {
                 slack: { enabled: false },
-                file: { 
+                file: {
                     enabled: true,
                     path: './feedback-analysis-report.md'
                 }
@@ -218,6 +295,13 @@ export class ConfigValidator {
                     ai: {
                         provider: 'vertex',
                         timeout: '30000s'
+                    },
+                    autoReply: {
+                        enabled: false,
+                        requireApproval: true,
+                        confidenceThreshold: 0.7,
+                        maxPerRun: 10,
+                        dryRun: false
                     },
                     notifications: {
                         slack: {

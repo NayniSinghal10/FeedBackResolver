@@ -10,11 +10,12 @@ AI-powered email feedback analysis system with automated OAuth and multi-mode su
 
 - **🤖 AI-Powered Analysis**: Intelligent email triage and categorization using NeuroLink
 - **📧 Gmail Integration**: Automated OAuth flow with no manual token management
+- **✉️ Auto-Reply System**: AI-generated contextual email responses with approval workflow
 - **📱 Slack Notifications**: Real-time feedback reports delivered to your team
+- **🌐 Multi-Provider AI**: Support for Vertex AI, Azure OpenAI, AWS Bedrock, Anthropic, OpenAI
 - **📁 Multi-Mode Support**: Process Gmail, files, or direct text input
-- **🔧 CLI Tools**: Command-line interface for easy automation
+- **🔧 Simple CLI**: No config files needed - everything in `.env`
 - **🎯 Event-Driven**: Extensible event system for custom integrations
-- **⚙️ Configurable**: Flexible configuration with environment support
 
 ## 📦 Installation
 
@@ -31,17 +32,41 @@ npm install feedback-resolver
 ### Command Line Interface
 
 ```bash
-# Initialize with guided setup
-feedback-resolver init
+# 1. Interactive setup wizard (recommended)
+feedback-resolver setup
 
-# Authenticate with Gmail (automated OAuth)
+# The wizard will ask you:
+# - Which AI provider to use
+# - Your API keys and credentials
+# - Gmail OAuth settings
+# - Slack webhook (optional)
+# - Auto-reply preferences
+
+# 2. Authenticate with Gmail (automated OAuth)
 feedback-resolver auth
 
-# Analyze feedback
+# 3. Test connections
+feedback-resolver test
+
+# 4. Analyze feedback
 feedback-resolver analyze
 
-# Test connections
-feedback-resolver test
+# 5. (Optional) Enable auto-reply
+feedback-resolver analyze --auto-reply
+```
+
+### Alternative: Manual Setup
+
+```bash
+# Create .env template without prompts
+feedback-resolver setup --template-only
+
+# Edit .env with your preferred editor
+nano .env  # or vim, code, etc.
+
+# Then continue with auth and analyze
+feedback-resolver auth
+feedback-resolver analyze
 ```
 
 ### Programmatic Usage
@@ -77,18 +102,64 @@ const result = await resolver.analyze();
 
 ## 🔧 Configuration
 
+### Interactive Setup (Recommended)
+
+The easiest way to get started:
+
+```bash
+feedback-resolver setup
+```
+
+This launches an interactive wizard that asks for:
+- ✅ AI provider choice (Azure, Vertex, Bedrock, Anthropic, OpenAI)
+- ✅ Provider-specific credentials
+- ✅ Gmail OAuth credentials
+- ✅ Email processing preferences
+- ✅ Slack integration (optional)
+- ✅ Auto-reply settings (optional)
+
+No manual file editing required!
+
+### Manual Setup (Advanced)
+
+For users who prefer editing files directly:
+
+```bash
+# Create .env template
+feedback-resolver setup --template-only
+
+# Edit with your preferred editor
+nano .env  # or vim, code, emacs, etc.
+```
+
 ### Environment Variables
 
-Create a `.env` file with your configuration:
-
 ```env
-# Gmail OAuth Credentials
+# Gmail OAuth Credentials (Required for Gmail mode)
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-# AI Provider Configuration
-NEUROLINK_DEFAULT_PROVIDER="vertex"
-GOOGLE_VERTEX_PROJECT="your-vertex-project"
+# AI Provider - Choose ONE: vertex, azure, bedrock, anthropic, openai
+NEUROLINK_DEFAULT_PROVIDER="azure"
+
+# Azure OpenAI (if using azure)
+AZURE_OPENAI_API_KEY="your-azure-key"
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
+
+# Vertex AI (if using vertex)
+# GOOGLE_VERTEX_PROJECT="your-project-id"
+# GOOGLE_VERTEX_LOCATION="us-central1"
+
+# AWS Bedrock (if using bedrock)
+# AWS_ACCESS_KEY_ID="your-access-key"
+# AWS_SECRET_ACCESS_KEY="your-secret-key"
+# AWS_REGION="us-east-1"
+
+# Anthropic (if using anthropic)
+# ANTHROPIC_API_KEY="your-api-key"
+
+# OpenAI (if using openai)
+# OPENAI_API_KEY="your-api-key"
 
 # Email Processing
 TARGET_EMAIL="support@yourcompany.com"
@@ -98,37 +169,12 @@ MAX_RESULTS="20"
 # Slack Integration
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 SLACK_ENABLED="true"
-```
 
-### Configuration File
-
-```json
-{
-  "mode": "gmail",
-  "config": {
-    "gmail": {
-      "clientId": "your-client-id",
-      "clientSecret": "your-client-secret",
-      "targetEmail": "support@example.com",
-      "daysToSearch": 10,
-      "maxResults": 20
-    },
-    "ai": {
-      "provider": "vertex",
-      "timeout": "30000s"
-    },
-    "notifications": {
-      "slack": {
-        "enabled": true,
-        "webhookUrl": "your-slack-webhook"
-      },
-      "file": {
-        "enabled": true,
-        "path": "./feedback-analysis-report.md"
-      }
-    }
-  }
-}
+# Auto-Reply (Optional - Gmail only)
+AUTO_REPLY_ENABLED="false"
+AUTO_REPLY_REQUIRE_APPROVAL="true"
+AUTO_REPLY_CONFIDENCE_THRESHOLD="0.7"
+AUTO_REPLY_MAX_PER_RUN="10"
 ```
 
 ## 🎯 Usage Examples
@@ -306,9 +352,20 @@ gmail: {
 
 ```javascript
 ai: {
-    provider: string,          // Required: 'vertex', 'anthropic', 'openai'
+    provider: string,          // Required: 'vertex', 'azure', 'bedrock', 'anthropic', 'openai'
     model?: string,           // Optional: Specific model name
     timeout?: string          // Optional: Timeout (default: '30000s')
+}
+```
+
+#### Auto-Reply Configuration
+
+```javascript
+autoReply: {
+    enabled: boolean,              // Enable auto-reply feature
+    requireApproval: boolean,      // Require user approval before sending
+    confidenceThreshold: number,   // Min confidence for auto-approval (0.0-1.0)
+    maxRepliesPerRun: number      // Safety limit per execution
 }
 ```
 
@@ -332,45 +389,55 @@ notifications: {
 
 ## 🛠️ CLI Commands
 
-### Global Commands
+All commands read configuration from `.env` file - no config files needed!
+
+### Setup & Authentication
 
 ```bash
-# Initialize new configuration
-feedback-resolver init [options]
-  -m, --mode <mode>     Mode: gmail, file, or test
-  -o, --output <file>   Output configuration file
+# Create .env file from template
+feedback-resolver setup
+  -f, --force          Overwrite existing .env
 
-# Authenticate with services
-feedback-resolver auth [options]
-  -c, --config <file>   Configuration file
+# Authenticate with Gmail (opens browser)
+feedback-resolver auth
+```
 
-# Analyze feedback
-feedback-resolver analyze [options]
-  -c, --config <file>   Configuration file
-  -i, --input <text>    Direct text input
-  --no-slack           Disable Slack notifications
-  --no-file           Disable file output
+### Analysis Commands
 
+```bash
+# Analyze feedback emails
+feedback-resolver analyze
+  --auto-reply         Enable auto-reply mode
+  --dry-run           Show what would be sent (no actual sending)
+  --no-slack          Disable Slack for this run
+  --no-file           Disable file output for this run
+
+# Examples:
+feedback-resolver analyze                    # Basic analysis
+feedback-resolver analyze --auto-reply       # With auto-reply (interactive)
+feedback-resolver analyze --auto-reply --dry-run  # Preview replies
+```
+
+### Testing & Monitoring
+
+```bash
 # Test connections
-feedback-resolver test [options]
-  -c, --config <file>   Configuration file
+feedback-resolver test
   --gmail             Test Gmail only
   --slack             Test Slack only
-  --ai               Test AI only
+  --ai                Test AI only
 
 # Continuous monitoring
-feedback-resolver serve [options]
-  -c, --config <file>   Configuration file
-  -i, --interval <min>  Check interval in minutes
+feedback-resolver serve
+  -i, --interval <min>  Check interval in minutes (default: 30)
 
-# Configuration management
-feedback-resolver config [options]
-  --template <mode>    Generate configuration template
-  --validate <file>    Validate configuration file
-  --show <file>       Show current configuration
+# Show current configuration
+feedback-resolver info
 ```
 
 ## 🔍 How It Works
+
+### Standard Analysis Flow
 
 1. **Email Fetching**: Connects to Gmail using OAuth2 and fetches unread emails based on your criteria
 2. **AI Triage**: Each email is analyzed by AI to determine business relevance
@@ -381,6 +448,25 @@ feedback-resolver config [options]
    - Meeting & Scheduling Requests
    - General Inquiries & Communications
 4. **Delivery**: Results are delivered via Slack notifications and saved as markdown reports
+
+### Auto-Reply Flow (Optional)
+
+When auto-reply is enabled (`--auto-reply` flag or `AUTO_REPLY_ENABLED=true`):
+
+1. **Email Analysis**: Same as standard flow, plus AI identifies which emails need replies
+2. **Reply Generation**: AI generates contextual, professional responses for each replyable email
+3. **Confidence Scoring**: Each reply gets a confidence score (0.0-1.0) based on AI's certainty
+4. **Approval Workflow**:
+   - **Interactive Mode** (`AUTO_REPLY_REQUIRE_APPROVAL=true`): You review and approve each reply
+   - **Auto Mode** (`AUTO_REPLY_REQUIRE_APPROVAL=false`): Replies above confidence threshold are sent automatically
+5. **Sending**: Approved replies are sent via Gmail API with proper threading
+6. **Reporting**: Sent replies are included in Slack notifications and markdown reports
+
+**Safety Features:**
+- Dry-run mode to preview without sending (`--dry-run`)
+- Maximum replies per run limit (`AUTO_REPLY_MAX_PER_RUN`)
+- Confidence threshold for auto-approval (`AUTO_REPLY_CONFIDENCE_THRESHOLD`)
+- Full audit trail in reports
 
 ## 🚧 Setup Guide
 
@@ -395,15 +481,56 @@ feedback-resolver config [options]
 
 ### 2. AI Provider Setup
 
-**For Vertex AI:**
+Choose ONE AI provider and configure it:
+
+**For Vertex AI (Google Cloud):**
 ```bash
 # Install Google Cloud SDK
 gcloud auth application-default login
 gcloud config set project YOUR-PROJECT-ID
+
+# Set in .env:
+NEUROLINK_DEFAULT_PROVIDER="vertex"
+GOOGLE_VERTEX_PROJECT="your-project-id"
+GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
-**For other providers:**
-- Set appropriate API keys in environment variables
+**For Azure OpenAI:**
+```bash
+# Get credentials from Azure Portal
+# Set in .env:
+NEUROLINK_DEFAULT_PROVIDER="azure"
+AZURE_OPENAI_API_KEY="your-key"
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
+```
+
+**For AWS Bedrock:**
+```bash
+# Configure AWS credentials
+aws configure
+
+# Set in .env:
+NEUROLINK_DEFAULT_PROVIDER="bedrock"
+AWS_ACCESS_KEY_ID="your-key"
+AWS_SECRET_ACCESS_KEY="your-secret"
+AWS_REGION="us-east-1"
+```
+
+**For Anthropic:**
+```bash
+# Get API key from console.anthropic.com
+# Set in .env:
+NEUROLINK_DEFAULT_PROVIDER="anthropic"
+ANTHROPIC_API_KEY="your-key"
+```
+
+**For OpenAI:**
+```bash
+# Get API key from platform.openai.com
+# Set in .env:
+NEUROLINK_DEFAULT_PROVIDER="openai"
+OPENAI_API_KEY="your-key"
+```
 
 ### 3. Slack Setup
 
@@ -417,17 +544,23 @@ gcloud config set project YOUR-PROJECT-ID
 # Install globally
 npm install -g feedback-resolver
 
-# Run setup wizard
-feedback-resolver init
+# Create .env file
+feedback-resolver setup
 
-# Authenticate
+# Edit .env with your credentials
+nano .env
+
+# Authenticate with Gmail
 feedback-resolver auth
 
-# Test connections
+# Test all connections
 feedback-resolver test
 
 # Run analysis
 feedback-resolver analyze
+
+# (Optional) Enable auto-reply
+feedback-resolver analyze --auto-reply
 ```
 
 ## 🧪 Testing
@@ -436,6 +569,9 @@ feedback-resolver analyze
 # Run test suite
 npm test
 
+# Run integration test
+npm run integration-test
+
 # Run examples
 npm run example
 
@@ -443,7 +579,114 @@ npm run example
 feedback-resolver test --gmail
 feedback-resolver test --slack
 feedback-resolver test --ai
+
+# Show current configuration
+feedback-resolver info
 ```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### "Configuration file not found"
+**Solution:** The CLI now uses `.env` files only. Run `feedback-resolver setup` to create one.
+
+#### "Authentication failed"
+**Possible causes:**
+- Incorrect `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET` in `.env`
+- Gmail API not enabled in Google Cloud Console
+- Redirect URI not set to `http://localhost:3000/oauth2callback`
+
+**Solution:**
+```bash
+# Verify your .env settings
+feedback-resolver info
+
+# Re-authenticate
+feedback-resolver auth
+```
+
+#### "AI provider validation failed"
+**Possible causes:**
+- Missing API keys for selected provider
+- Incorrect provider name in `NEUROLINK_DEFAULT_PROVIDER`
+
+**Solution:**
+```bash
+# Check which provider is configured
+feedback-resolver info
+
+# Verify you have the correct environment variables:
+# - Azure: AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
+# - Vertex: GOOGLE_VERTEX_PROJECT
+# - Bedrock: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+# - Anthropic: ANTHROPIC_API_KEY
+# - OpenAI: OPENAI_API_KEY
+```
+
+#### "No emails found"
+**Possible causes:**
+- No unread emails in the specified time range
+- `TARGET_EMAIL` filter too restrictive
+- `DAYS_TO_SEARCH` too short
+
+**Solution:**
+```bash
+# Check your email settings in .env
+DAYS_TO_SEARCH="30"  # Increase search range
+TARGET_EMAIL=""      # Remove filter to search all emails
+```
+
+#### "Slack notification failed"
+**Possible causes:**
+- Invalid `SLACK_WEBHOOK_URL`
+- Slack app not properly configured
+
+**Solution:**
+```bash
+# Test Slack connection
+feedback-resolver test --slack
+
+# Verify webhook URL in .env
+# Get a new webhook from: https://api.slack.com/apps
+```
+
+#### "Auto-reply not working"
+**Possible causes:**
+- `AUTO_REPLY_ENABLED` not set to `true`
+- Gmail API missing send permission
+- Not running in Gmail mode
+
+**Solution:**
+```bash
+# Check configuration
+feedback-resolver info
+
+# Ensure .env has:
+AUTO_REPLY_ENABLED="true"
+FEEDBACK_RESOLVER_MODE="gmail"
+
+# Re-authenticate to get send permission
+feedback-resolver auth
+```
+
+### Debug Mode
+
+Enable detailed logging:
+```bash
+# Set in .env
+DEBUG="feedback-resolver:*"
+LOG_LEVEL="debug"
+```
+
+### Getting Help
+
+1. Check the [documentation](https://github.com/NayniSinghal10/FeedBackResolver/wiki)
+2. Search [existing issues](https://github.com/NayniSinghal10/FeedBackResolver/issues)
+3. Create a [new issue](https://github.com/NayniSinghal10/FeedBackResolver/issues/new) with:
+   - Your `.env` configuration (remove sensitive values!)
+   - Error messages
+   - Steps to reproduce
 
 ## 🤝 Contributing
 

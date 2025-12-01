@@ -1,9 +1,9 @@
 # Development files
 .env
 .oauth-tokens.json
-test-config.json
 test-output/
 integration-test-report.md
+*.config.json
 
 # Git and editor files
 .git/
