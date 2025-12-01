@@ -181,6 +181,9 @@ export class AIAnalyzer {
      * @private
      */
     _buildTriageWithReplyPrompt(email) {
+        // Check if email is from a no-reply address
+        const isNoReply = this._isNoReplyAddress(email.from);
+        
         return `
 Analyze the following email and determine:
 1. If it is a relevant business communication
@@ -193,8 +196,11 @@ Guidelines for relevance:
 Guidelines for replyability:
 - Needs reply: Questions, support requests, feature inquiries, meeting requests, complaints, feedback requiring acknowledgment
 - No reply needed: FYI messages, confirmations, thank you notes, automated notifications, spam
+- NEVER reply to: no-reply addresses, do-not-reply addresses, automated system emails, notification emails
 
-If the email needs a reply, generate a professional, contextual response that:
+**CRITICAL: The sender email is "${email.from}". ${isNoReply ? 'This is a NO-REPLY address - set isReplyable to FALSE regardless of content.' : 'Check if this is a replyable address.'}**
+
+If the email needs a reply AND the sender address is replyable, generate a professional, contextual response that:
 - Addresses the sender's specific concerns
 - Provides helpful information or next steps
 - Maintains a professional and friendly tone
@@ -202,7 +208,7 @@ If the email needs a reply, generate a professional, contextual response that:
 
 Return result as JSON with these fields:
 - "isRelevant" (boolean): true if business-relevant
-- "isReplyable" (boolean): true if this email needs a response from us
+- "isReplyable" (boolean): true ONLY if this email needs a response AND the sender address is replyable (not no-reply/do-not-reply)
 - "cleanedMessage" (string): complete email content with subject line
 - "suggestedReply" (string): if isReplyable is true, provide a complete, ready-to-send reply
 - "replyReason" (string): if isReplyable is true, brief explanation why it needs a reply
@@ -220,6 +226,32 @@ ${email.body}
 ---
 
 JSON Response:`;
+    }
+
+    /**
+     * Check if an email address is a no-reply address
+     * @private
+     */
+    _isNoReplyAddress(emailAddress) {
+        if (!emailAddress) return true;
+        
+        const lowerEmail = emailAddress.toLowerCase();
+        const noReplyPatterns = [
+            'noreply',
+            'no-reply',
+            'no_reply',
+            'donotreply',
+            'do-not-reply',
+            'do_not_reply',
+            'notifications@',
+            'automated@',
+            'system@',
+            'mailer@',
+            'daemon@',
+            'postmaster@'
+        ];
+        
+        return noReplyPatterns.some(pattern => lowerEmail.includes(pattern));
     }
 
     /**
@@ -288,9 +320,38 @@ JSON Response:`;
 
     /**
      * Perform consolidated analysis on all emails (relevant and non-relevant)
+     * Processes in batches to avoid token limits
      */
     async _performConsolidatedAnalysis(allTriageResults) {
-        const emailBatch = allTriageResults
+        // Limit batch size to prevent token overflow
+        const BATCH_SIZE = 15; // Process max 15 emails at a time
+        
+        if (allTriageResults.length <= BATCH_SIZE) {
+            // Small batch - process all at once
+            return await this._processBatch(allTriageResults);
+        }
+        
+        // Large batch - process in chunks and combine
+        console.log(`⚠️  Processing ${allTriageResults.length} emails in batches of ${BATCH_SIZE} to avoid token limits...`);
+        const batches = [];
+        
+        for (let i = 0; i < allTriageResults.length; i += BATCH_SIZE) {
+            const batch = allTriageResults.slice(i, i + BATCH_SIZE);
+            console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(allTriageResults.length / BATCH_SIZE)} (${batch.length} emails)...`);
+            const batchResult = await this._processBatch(batch);
+            batches.push(batchResult);
+        }
+        
+        // Combine all batch results
+        return batches.join('\n\n---\n\n## Next Batch\n\n');
+    }
+    
+    /**
+     * Process a single batch of emails
+     * @private
+     */
+    async _processBatch(triageResults) {
+        const emailBatch = triageResults
             .map(result => `(From: ${result.from}) [${result.isRelevant ? 'RELEVANT' : 'GENERAL'}]\n${result.cleanedMessage}`)
             .join('\n\n---\n\n');
 

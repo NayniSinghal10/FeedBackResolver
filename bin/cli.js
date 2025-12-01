@@ -149,6 +149,19 @@ program
                     default: '10'
                 },
                 {
+                    type: 'input',
+                    name: 'maxResults',
+                    message: 'Maximum emails to process per run (recommended: 5-20):',
+                    default: '10',
+                    validate: (input) => {
+                        const num = parseInt(input);
+                        if (isNaN(num) || num < 1 || num > 100) {
+                            return 'Please enter a number between 1 and 100';
+                        }
+                        return true;
+                    }
+                },
+                {
                     type: 'confirm',
                     name: 'enableSlack',
                     message: 'Enable Slack notifications?',
