@@ -38,6 +38,10 @@ export default class FeedbackResolver extends EventEmitter {
      */
     static fromEnv() {
         const config = {
+            user: {
+                name: process.env.USER_NAME || '',
+                designation: process.env.USER_DESIGNATION || ''
+            },
             gmail: {
                 clientId: process.env.GOOGLE_CLIENT_ID,
                 clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -47,7 +51,9 @@ export default class FeedbackResolver extends EventEmitter {
             },
             ai: {
                 provider: process.env.NEUROLINK_DEFAULT_PROVIDER || 'vertex',
-                model: process.env.NEUROLINK_DEFAULT_MODEL
+                model: process.env.NEUROLINK_DEFAULT_MODEL,
+                userName: process.env.USER_NAME || '',
+                userDesignation: process.env.USER_DESIGNATION || ''
             },
             autoReply: {
                 enabled: process.env.AUTO_REPLY_ENABLED === 'true',

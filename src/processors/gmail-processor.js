@@ -36,12 +36,13 @@ export class GmailProcessor {
         await this._initializeGmail();
         
         console.log(`📥 Fetching emails from Gmail...`);
+        console.log(`⚙️  Limiting to ${this.config.maxResults} emails to prevent token overflow`);
         
         // Build Gmail query
         const query = this._buildQuery();
         console.log(`🔍 Gmail query: ${query}`);
         
-        // Fetch email list
+        // Fetch email list (limited by maxResults)
         const messages = await this._fetchEmailList(query);
         
         if (messages.length === 0) {
@@ -49,7 +50,7 @@ export class GmailProcessor {
             return [];
         }
         
-        console.log(`📬 Found ${messages.length} emails to process`);
+        console.log(`📬 Found ${messages.length} emails (limited to ${this.config.maxResults} max)`);
         
         // Fetch full email details
         const emails = await this._fetchEmailDetails(messages);

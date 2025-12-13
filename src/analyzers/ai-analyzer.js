@@ -10,11 +10,17 @@ export class AIAnalyzer {
             provider: config.provider || 'vertex',
             model: config.model || null,
             timeout: config.timeout || '30000s',
+            userName: config.userName || '',
+            userDesignation: config.userDesignation || '',
             ...config
         };
         
         this.neurolink = new NeuroLink();
         console.log(`🤖 AI Analyzer initialized with ${this.config.provider} provider`);
+        
+        if (this.config.userName && this.config.userDesignation) {
+            console.log(`👤 Personalization enabled: ${this.config.userName}, ${this.config.userDesignation}`);
+        }
     }
 
     /**
@@ -184,6 +190,11 @@ export class AIAnalyzer {
         // Check if email is from a no-reply address
         const isNoReply = this._isNoReplyAddress(email.from);
         
+        // Build personalization context
+        const personalizationContext = this.config.userName && this.config.userDesignation
+            ? `\n**IMPORTANT: You are responding as ${this.config.userName}, ${this.config.userDesignation}. Sign all replies with this name and designation.**\n`
+            : '';
+        
         return `
 Analyze the following email and determine:
 1. If it is a relevant business communication
@@ -199,18 +210,19 @@ Guidelines for replyability:
 - NEVER reply to: no-reply addresses, do-not-reply addresses, automated system emails, notification emails
 
 **CRITICAL: The sender email is "${email.from}". ${isNoReply ? 'This is a NO-REPLY address - set isReplyable to FALSE regardless of content.' : 'Check if this is a replyable address.'}**
-
+${personalizationContext}
 If the email needs a reply AND the sender address is replyable, generate a professional, contextual response that:
 - Addresses the sender's specific concerns
 - Provides helpful information or next steps
 - Maintains a professional and friendly tone
 - Is ready to send (complete sentences, proper formatting)
+${this.config.userName && this.config.userDesignation ? `- MUST end with a professional signature:\n\nBest regards,\n${this.config.userName}\n${this.config.userDesignation}` : '- Includes an appropriate professional closing'}
 
 Return result as JSON with these fields:
 - "isRelevant" (boolean): true if business-relevant
 - "isReplyable" (boolean): true ONLY if this email needs a response AND the sender address is replyable (not no-reply/do-not-reply)
 - "cleanedMessage" (string): complete email content with subject line
-- "suggestedReply" (string): if isReplyable is true, provide a complete, ready-to-send reply
+- "suggestedReply" (string): if isReplyable is true, provide a complete, ready-to-send reply with proper signature
 - "replyReason" (string): if isReplyable is true, brief explanation why it needs a reply
 - "replyConfidence" (number): if isReplyable is true, confidence score 0-1 for the suggested reply
 - "confidence" (number): confidence score 0-1 for relevance classification

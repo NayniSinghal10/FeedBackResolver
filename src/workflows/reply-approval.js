@@ -36,7 +36,6 @@ export class ReplyApprovalWorkflow {
 
         const approved = [];
         let skipAll = false;
-        let approveAll = false;
 
         for (let i = 0; i < replyableEmails.length; i++) {
             const item = replyableEmails[i];
@@ -45,15 +44,6 @@ export class ReplyApprovalWorkflow {
             if (skipAll) {
                 console.log(`⏭️  Skipping remaining emails (${replyableEmails.length - i} left)`);
                 break;
-            }
-
-            // Auto-approve if user chose "Approve All"
-            if (approveAll) {
-                approved.push({
-                    email: item.email,
-                    replyContent: item.suggestedReply
-                });
-                continue;
             }
 
             // Show email details
@@ -70,13 +60,6 @@ export class ReplyApprovalWorkflow {
                 console.log('✅ Reply approved\n');
             } else if (decision.action === 'skip') {
                 console.log('⏭️  Skipped\n');
-            } else if (decision.action === 'approve_all') {
-                approved.push({
-                    email: item.email,
-                    replyContent: item.suggestedReply
-                });
-                approveAll = true;
-                console.log('✅ Approving this and all remaining emails\n');
             } else if (decision.action === 'skip_all') {
                 skipAll = true;
                 console.log('⏭️  Skipping this and all remaining emails\n');
@@ -130,7 +113,6 @@ export class ReplyApprovalWorkflow {
             { name: '✅ Approve - Send this reply', value: 'approve' },
             { name: '✏️  Edit - Modify the reply before sending', value: 'edit' },
             { name: '⏭️  Skip - Don\'t send a reply to this email', value: 'skip' },
-            { name: '✅✅ Approve All - Approve this and all remaining', value: 'approve_all' },
             { name: '⏭️⏭️  Skip All - Skip this and all remaining', value: 'skip_all' },
             { name: '🛑 Quit - Cancel the approval process', value: 'quit' }
         ];
